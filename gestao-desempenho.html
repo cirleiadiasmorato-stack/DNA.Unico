@@ -686,6 +686,31 @@ tr:hover td { background:var(--gray-50); }
       </div>
     </div>
 
+    <!-- BIBLIOTECA -->
+    <div class="page" id="page-biblioteca">
+      <div class="page-header">
+        <h1>Biblioteca</h1>
+        <p>Documentos, manuais e materiais institucionais</p>
+      </div>
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:20px;flex-wrap:wrap">
+        <input type="text" class="form-control" id="bib-busca" placeholder="🔍 Buscar documento..." oninput="filterBiblioteca(this.value)" style="max-width:280px">
+        <select class="form-control" id="bib-filtro-cat" onchange="filterBiblioteca(document.getElementById('bib-busca').value)" style="max-width:200px">
+          <option value="">Todas as categorias</option>
+          <option value="cultura">Manual da Cultura</option>
+          <option value="conduta">Código de Conduta</option>
+          <option value="onboarding">Onboarding</option>
+          <option value="politicas">Políticas e Normas</option>
+          <option value="beneficios">Benefícios</option>
+          <option value="treinamento">Treinamentos</option>
+          <option value="outros">Outros</option>
+        </select>
+        <div id="bib-add-btn"></div>
+      </div>
+      <div id="bib-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px">
+        <p class="text-muted" style="text-align:center;padding:40px;grid-column:1/-1">Nenhum documento cadastrado.</p>
+      </div>
+    </div>
+
     <!-- CONFIGURAÇÕES -->
     <div class="page" id="page-configuracoes">
       <div class="page-header">
@@ -893,6 +918,59 @@ tr:hover td { background:var(--gray-50); }
   </div>
 </div>
 
+<!-- Modal Biblioteca -->
+<div class="modal-overlay" id="modal-biblioteca-doc">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header">
+      <h2 id="bib-modal-titulo">Novo Documento</h2>
+      <button class="modal-close" onclick="closeModal('modal-biblioteca-doc')">✕</button>
+    </div>
+    <input type="hidden" id="bib-doc-id">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Título *</label>
+        <input type="text" class="form-control" id="bib-titulo" placeholder="Ex: Manual da Cultura DNA Único">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Categoria *</label>
+        <select class="form-control" id="bib-categoria">
+          <option value="cultura">Manual da Cultura</option>
+          <option value="conduta">Código de Conduta</option>
+          <option value="onboarding">Onboarding</option>
+          <option value="politicas">Políticas e Normas</option>
+          <option value="beneficios">Benefícios</option>
+          <option value="treinamento">Treinamentos</option>
+          <option value="outros">Outros</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Descrição</label>
+      <textarea class="form-control" id="bib-descricao" rows="2" placeholder="Breve descrição do conteúdo..."></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Visível para</label>
+      <select class="form-control" id="bib-visibilidade">
+        <option value="todos">Todos (admin, gestor, colaborador)</option>
+        <option value="gestores">Gestores e Admins</option>
+        <option value="admin">Somente Admins</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Arquivo (PDF, Word, imagem...)</label>
+      <div style="border:2px dashed var(--gray-300);border-radius:8px;padding:20px;text-align:center;cursor:pointer" onclick="document.getElementById('bib-file-input').click()">
+        <div style="color:var(--gray-400)">📎 Clique para selecionar</div>
+        <div id="bib-file-nome" style="margin-top:6px;font-size:13px;color:var(--primary)"></div>
+      </div>
+      <input type="file" id="bib-file-input" style="display:none" onchange="onBibFileSelect(this)">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-biblioteca-doc')">Cancelar</button>
+      <button class="btn btn-success" onclick="salvarDocBiblioteca()">Salvar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal Documento Gestor -->
 <div class="modal-overlay" id="modal-doc-gestor">
   <div class="modal" style="max-width:460px">
@@ -1054,6 +1132,7 @@ let DB = {
     {id:3, colaboradorId:4, gestor:'Carla Dias', data:'2024-03-01', fortes:'Boa vontade e disposição.', melhoria:'Cumprimento de metas e pontualidade nas entregas.', acoes:'Definir rotina diária. Reunião semanal de acompanhamento.', prazo:'2024-04-15', status:'pendente', arquivos:[]},
   ],
   documentos: [],
+  biblioteca: [],
   pdis: [
     {id:1, colaboradorId:1, objetivo:'Desenvolver habilidades de liderança para assumir posição de coordenação', indicador:'Liderar projeto com pelo menos 3 pessoas até Q4 2024', prazo:'2024-12-31', acoes:[{texto:'Participar de curso de liderança online',status:'concluido'},{texto:'Fazer mentoria com a Carla Dias',status:'concluido'},{texto:'Liderar projeto piloto com equipe pequena',status:'em andamento'},{texto:'Apresentar resultado do projeto para diretoria',status:'nao iniciado'}], arquivos:[]},
     {id:2, colaboradorId:2, objetivo:'Melhorar comunicação com stakeholders não-técnicos', indicador:'Reduzir retrabalho por mal-entendimento de requisitos de 30% para 10%', prazo:'2024-09-30', acoes:[{texto:'Curso de comunicação executiva',status:'em andamento'},{texto:'Ler livro: "Comunicação Não-Violenta"',status:'concluido'},{texto:'Fazer apresentação mensal para a área de negócios',status:'nao iniciado'}], arquivos:[]},
@@ -1080,6 +1159,7 @@ function applyData(p) {
   if (p.feedbacks) DB.feedbacks = p.feedbacks;
   if (p.pdis) DB.pdis = p.pdis;
   if (p.documentos) DB.documentos = p.documentos;
+  if (p.biblioteca) DB.biblioteca = p.biblioteca;
   if (p.config) DB.config = {...DB.config, ...p.config};
   if (p.colaboradores && p.colaboradores.length) {
     DB.colaboradores = p.colaboradores.map(salvo => {
@@ -1115,6 +1195,7 @@ function saveDB() {
     feedbacks: DB.feedbacks,
     pdis: DB.pdis,
     documentos: DB.documentos,
+    biblioteca: DB.biblioteca,
     config: DB.config
   };
   localStorage.setItem(STORE_KEY, JSON.stringify(data));
@@ -1191,7 +1272,8 @@ const NAV_CONFIG = {
     {id:'feedback', label:'Feedbacks', icon:'message'},
     {id:'pdi', label:'PDI', icon:'target'},
     {id:'kpis', label:'KPIs', icon:'chart-bar'},
-    {id:'configuracoes', label:'Configurações', icon:'settings', section:'Sistema'},
+    {id:'biblioteca', label:'Biblioteca', icon:'book', section:'Sistema'},
+    {id:'configuracoes', label:'Configurações', icon:'settings'},
   ],
   gestor: [
     {id:'dashboard', label:'Dashboard', icon:'home'},
@@ -1201,12 +1283,14 @@ const NAV_CONFIG = {
     {id:'feedback', label:'Feedbacks', icon:'message'},
     {id:'pdi', label:'PDI', icon:'target'},
     {id:'kpis', label:'KPIs', icon:'chart-bar'},
+    {id:'biblioteca', label:'Biblioteca', icon:'book', section:'Sistema'},
   ],
   colaborador: [
     {id:'minha-evolucao', label:'Minha Evolução', icon:'trending-up'},
     {id:'autoavaliacao', label:'Autoavaliação', icon:'edit', section:'Meu Desenvolvimento'},
     {id:'feedback', label:'Meus Feedbacks', icon:'message'},
     {id:'pdi', label:'Meu PDI', icon:'target'},
+    {id:'biblioteca', label:'Biblioteca', icon:'book', section:'Empresa'},
   ],
 };
 
@@ -1219,6 +1303,7 @@ const ICONS = {
   'chart-bar': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>',
   'trending-up': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>',
   edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+  book: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
   settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
 };
 
@@ -1263,6 +1348,7 @@ function renderPage(id) {
   if (id === 'colaboradores') renderColaboradores();
   if (id === 'minha-evolucao') renderMinhaEvolucao();
   if (id === 'meu-desempenho') renderMeuDesempenho();
+  if (id === 'biblioteca') renderBiblioteca();
   if (id === 'autoavaliacao') initAutoAvaliacao();
   if (id === 'configuracoes') renderConfiguracoes();
 }
@@ -2203,6 +2289,133 @@ document.addEventListener('DOMContentLoaded', ()=>{
     });
   });
 });
+
+// ===================== BIBLIOTECA =====================
+const BIB_CATEGORIAS = {
+  cultura:'📘 Manual da Cultura', conduta:'📋 Código de Conduta',
+  onboarding:'🚀 Onboarding', politicas:'📌 Políticas e Normas',
+  beneficios:'🎁 Benefícios', treinamento:'🎓 Treinamentos', outros:'📄 Outros'
+};
+const BIB_CORES = {
+  cultura:'var(--primary)', conduta:'var(--danger)', onboarding:'var(--success)',
+  politicas:'var(--warning)', beneficios:'#7c3aed', treinamento:'#0891b2', outros:'var(--gray-400)'
+};
+
+let _bibFileData = null;
+
+function renderBiblioteca() {
+  const u = DB.currentUser;
+  const podeEditar = u.perfil === 'admin' || u.perfil === 'gestor';
+  const addBtn = document.getElementById('bib-add-btn');
+  if (addBtn) addBtn.innerHTML = podeEditar
+    ? `<button class="btn btn-primary-sm" onclick="novoBibDoc()">+ Adicionar Documento</button>` : '';
+  filterBiblioteca('');
+}
+
+function filterBiblioteca(q) {
+  const u = DB.currentUser;
+  const cat = document.getElementById('bib-filtro-cat')?.value || '';
+  const podeEditar = u.perfil === 'admin' || u.perfil === 'gestor';
+  const bib = (DB.biblioteca || []).filter(d => {
+    if (d.visibilidade === 'admin' && u.perfil !== 'admin') return false;
+    if (d.visibilidade === 'gestores' && u.perfil === 'colaborador') return false;
+    if (cat && d.categoria !== cat) return false;
+    if (q && !d.titulo.toLowerCase().includes(q.toLowerCase()) && !d.descricao?.toLowerCase().includes(q.toLowerCase())) return false;
+    return true;
+  });
+  const grid = document.getElementById('bib-grid');
+  if (!grid) return;
+  if (!bib.length) {
+    grid.innerHTML = '<p class="text-muted" style="text-align:center;padding:40px;grid-column:1/-1">Nenhum documento encontrado.</p>';
+    return;
+  }
+  grid.innerHTML = bib.map(d => `
+    <div style="background:#fff;border-radius:12px;border:1px solid var(--gray-200);overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 4px rgba(0,0,0,0.06)">
+      <div style="background:${BIB_CORES[d.categoria]||'var(--gray-400)'};padding:20px 16px 16px;color:#fff">
+        <div style="font-size:28px;margin-bottom:6px">${BIB_CATEGORIAS[d.categoria]?.split(' ')[0]||'📄'}</div>
+        <div style="font-size:11px;font-weight:600;opacity:0.85;text-transform:uppercase;letter-spacing:.5px">${BIB_CATEGORIAS[d.categoria]?.split(' ').slice(1).join(' ')||'Documento'}</div>
+      </div>
+      <div style="padding:14px 16px;flex:1;display:flex;flex-direction:column;gap:6px">
+        <div style="font-weight:700;font-size:14px;color:var(--gray-800)">${d.titulo}</div>
+        ${d.descricao?`<div style="font-size:12px;color:var(--gray-500);line-height:1.4">${d.descricao}</div>`:''}
+        <div style="font-size:11px;color:var(--gray-400);margin-top:auto;padding-top:8px">Adicionado em ${d.data}</div>
+      </div>
+      <div style="padding:10px 16px;border-top:1px solid var(--gray-100);display:flex;gap:8px;justify-content:flex-end">
+        ${d.dados?`<a href="${d.dados}" download="${d.nomeArquivo||d.titulo}" class="btn btn-outline btn-sm">⬇ Baixar</a>`:''}
+        ${podeEditar?`<button class="btn btn-ghost btn-sm" onclick="editarBibDoc(${d.id})">✏️</button><button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="removerBibDoc(${d.id})">🗑️</button>`:''}
+      </div>
+    </div>`).join('');
+}
+
+function novoBibDoc() {
+  document.getElementById('bib-doc-id').value = '';
+  document.getElementById('bib-titulo').value = '';
+  document.getElementById('bib-descricao').value = '';
+  document.getElementById('bib-categoria').value = 'cultura';
+  document.getElementById('bib-visibilidade').value = 'todos';
+  document.getElementById('bib-file-nome').textContent = '';
+  document.getElementById('bib-modal-titulo').textContent = 'Novo Documento';
+  _bibFileData = null;
+  openModal('modal-biblioteca-doc');
+}
+
+function editarBibDoc(id) {
+  const d = (DB.biblioteca||[]).find(x=>x.id===id);
+  if (!d) return;
+  document.getElementById('bib-doc-id').value = d.id;
+  document.getElementById('bib-titulo').value = d.titulo;
+  document.getElementById('bib-descricao').value = d.descricao||'';
+  document.getElementById('bib-categoria').value = d.categoria;
+  document.getElementById('bib-visibilidade').value = d.visibilidade||'todos';
+  document.getElementById('bib-file-nome').textContent = d.nomeArquivo||'';
+  document.getElementById('bib-modal-titulo').textContent = 'Editar Documento';
+  _bibFileData = d.dados ? {dados: d.dados, nomeArquivo: d.nomeArquivo} : null;
+  openModal('modal-biblioteca-doc');
+}
+
+function onBibFileSelect(input) {
+  const file = input.files[0];
+  if (!file) return;
+  document.getElementById('bib-file-nome').textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = e => { _bibFileData = {dados: e.target.result, nomeArquivo: file.name}; };
+  reader.readAsDataURL(file);
+}
+
+function salvarDocBiblioteca() {
+  const titulo = document.getElementById('bib-titulo').value.trim();
+  if (!titulo) { alert('Informe o título do documento.'); return; }
+  if (!DB.biblioteca) DB.biblioteca = [];
+  const id = document.getElementById('bib-doc-id').value;
+  const dados = {
+    titulo,
+    descricao: document.getElementById('bib-descricao').value.trim(),
+    categoria: document.getElementById('bib-categoria').value,
+    visibilidade: document.getElementById('bib-visibilidade').value,
+    data: new Date().toLocaleDateString('pt-BR'),
+    adicionadoPor: DB.currentUser.nome,
+    nomeArquivo: _bibFileData?.nomeArquivo || null,
+    dados: _bibFileData?.dados || null
+  };
+  if (id) {
+    const idx = DB.biblioteca.findIndex(x=>x.id==id);
+    if (idx>=0) Object.assign(DB.biblioteca[idx], dados);
+  } else {
+    DB.biblioteca.push({id: Date.now(), ...dados});
+  }
+  saveDB();
+  closeModal('modal-biblioteca-doc');
+  _bibFileData = null;
+  renderBiblioteca();
+  alert('Documento salvo na biblioteca!');
+}
+
+function removerBibDoc(id) {
+  if (!confirm('Remover este documento da biblioteca?')) return;
+  DB.biblioteca = (DB.biblioteca||[]).filter(d=>d.id!==id);
+  saveDB();
+  renderBiblioteca();
+}
 
 // ===================== MEU DESEMPENHO (GESTOR) =====================
 function renderMeuDesempenho() {
