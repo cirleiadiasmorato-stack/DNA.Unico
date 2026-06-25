@@ -686,6 +686,39 @@ tr:hover td { background:var(--gray-50); }
       </div>
     </div>
 
+    <!-- RANKING -->
+    <div class="page" id="page-ranking">
+      <div class="page-header">
+        <h1>🏆 Ranking de Profissionais</h1>
+        <p>Classificação por desempenho nas avaliações e engajamento no sistema</p>
+      </div>
+      <div class="grid-4 mb-16">
+        <div class="metric-card"><div class="metric-label">Participantes</div><div class="metric-value" id="rank-total">—</div></div>
+        <div class="metric-card"><div class="metric-label">Melhor Nota Geral</div><div class="metric-value" id="rank-melhor-nota">—</div></div>
+        <div class="metric-card"><div class="metric-label">Mais Documentos</div><div class="metric-value" id="rank-mais-docs">—</div></div>
+        <div class="metric-card"><div class="metric-label">Média Geral</div><div class="metric-value" id="rank-media">—</div></div>
+      </div>
+      <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+        <select class="form-control" id="rank-filtro-area" onchange="renderRanking()" style="max-width:200px">
+          <option value="">Todas as áreas</option>
+        </select>
+        <select class="form-control" id="rank-filtro-ciclo" onchange="renderRanking()" style="max-width:160px">
+          <option value="">Todos os ciclos</option>
+        </select>
+        <select class="form-control" id="rank-ordenar" onchange="renderRanking()" style="max-width:200px">
+          <option value="geral">Pontuação Geral</option>
+          <option value="nota">Nota de Avaliação</option>
+          <option value="docs">Nº de Documentos</option>
+          <option value="cultura">Nota Cultura</option>
+          <option value="performance">Nota Performance</option>
+          <option value="comportamento">Nota Comportamento</option>
+        </select>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <div id="rank-lista"></div>
+      </div>
+    </div>
+
     <!-- BIBLIOTECA -->
     <div class="page" id="page-biblioteca">
       <div class="page-header">
@@ -1272,6 +1305,7 @@ const NAV_CONFIG = {
     {id:'feedback', label:'Feedbacks', icon:'message'},
     {id:'pdi', label:'PDI', icon:'target'},
     {id:'kpis', label:'KPIs', icon:'chart-bar'},
+    {id:'ranking', label:'Ranking', icon:'trophy', section:'Análise'},
     {id:'biblioteca', label:'Biblioteca', icon:'book', section:'Sistema'},
     {id:'configuracoes', label:'Configurações', icon:'settings'},
   ],
@@ -1303,6 +1337,7 @@ const ICONS = {
   'chart-bar': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>',
   'trending-up': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>',
   edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+  trophy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="14 9 14 2 10 2 10 9"/><path d="M3 9h18M7 21h10M12 21v-4"/><path d="M5 9c0 4.4 3.1 8 7 8s7-3.6 7-8"/></svg>',
   book: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
   settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
 };
@@ -1349,6 +1384,7 @@ function renderPage(id) {
   if (id === 'minha-evolucao') renderMinhaEvolucao();
   if (id === 'meu-desempenho') renderMeuDesempenho();
   if (id === 'biblioteca') renderBiblioteca();
+  if (id === 'ranking') renderRanking();
   if (id === 'autoavaliacao') initAutoAvaliacao();
   if (id === 'configuracoes') renderConfiguracoes();
 }
@@ -2289,6 +2325,81 @@ document.addEventListener('DOMContentLoaded', ()=>{
     });
   });
 });
+
+// ===================== RANKING =====================
+function renderRanking() {
+  const areaFiltro = document.getElementById('rank-filtro-area')?.value || '';
+  const cicloFiltro = document.getElementById('rank-filtro-ciclo')?.value || '';
+  const ordenar = document.getElementById('rank-ordenar')?.value || 'geral';
+
+  // Popular filtros
+  const areas = [...new Set(DB.colaboradores.filter(c=>c.perfil!=='admin'&&c.area).map(c=>c.area))].sort();
+  const areaEl = document.getElementById('rank-filtro-area');
+  if (areaEl && areaEl.options.length <= 1) {
+    areas.forEach(a => { const o = document.createElement('option'); o.value=a; o.textContent=a; areaEl.appendChild(o); });
+  }
+  const cicloEl = document.getElementById('rank-filtro-ciclo');
+  if (cicloEl && cicloEl.options.length <= 1) {
+    getCiclos().forEach(c => { const o = document.createElement('option'); o.value=c; o.textContent=c; cicloEl.appendChild(o); });
+  }
+
+  let cols = DB.colaboradores.filter(c => c.perfil !== 'admin');
+  if (areaFiltro) cols = cols.filter(c => c.area === areaFiltro);
+
+  const ranking = cols.map(c => {
+    const avs = DB.avaliacoes.filter(a => a.colaboradorId === c.id && (!cicloFiltro || a.ciclo === cicloFiltro));
+    const ultima = avs.length ? avs[avs.length-1] : null;
+    const nc = ultima ? calcNotaPilar(ultima.cultura) : 0;
+    const np = ultima ? calcNotaPilar(ultima.performance) : 0;
+    const nb = ultima ? calcNotaPilar(ultima.comportamento) : 0;
+    const nota = ultima ? (nc+np+nb)/3 : 0;
+    const docs = (DB.documentos||[]).filter(d=>d.userId===c.id).length;
+    const pontuacao = parseFloat((nota * 0.75 + Math.min(docs,5) * 0.25).toFixed(2));
+    return { c, nota, nc, np, nb, docs, pontuacao, avs: avs.length };
+  });
+
+  ranking.sort((a,b) => {
+    if (ordenar==='nota') return b.nota-a.nota;
+    if (ordenar==='docs') return b.docs-a.docs;
+    if (ordenar==='cultura') return b.nc-a.nc;
+    if (ordenar==='performance') return b.np-a.np;
+    if (ordenar==='comportamento') return b.nb-a.nb;
+    return b.pontuacao-a.pontuacao;
+  });
+
+  // Métricas
+  document.getElementById('rank-total').textContent = ranking.length;
+  const comNota = ranking.filter(r=>r.nota>0);
+  document.getElementById('rank-melhor-nota').textContent = comNota.length ? comNota[0].nota.toFixed(1) : '—';
+  document.getElementById('rank-mais-docs').textContent = ranking.length ? Math.max(...ranking.map(r=>r.docs)) : '—';
+  const media = comNota.length ? (comNota.reduce((s,r)=>s+r.nota,0)/comNota.length).toFixed(1) : '—';
+  document.getElementById('rank-media').textContent = media;
+
+  const medalhas = ['🥇','🥈','🥉'];
+  const lista = document.getElementById('rank-lista');
+  lista.innerHTML = ranking.length ? ranking.map((r,i) => {
+    const barra = r.nota>0 ? Math.round((r.nota/5)*100) : 0;
+    const corBarra = r.nota>=4?'var(--success)':r.nota>=3?'var(--primary)':r.nota>=2?'var(--warning)':'var(--danger)';
+    const destaque = i < 3 ? `background:${['#fffbeb','#f8fafc','#fff7ed'][i]};` : '';
+    return `<div style="${destaque}display:flex;align-items:center;gap:16px;padding:16px 20px;border-bottom:1px solid var(--gray-100)">
+      <div style="width:36px;text-align:center;font-size:${i<3?'24px':'15px'};font-weight:700;color:var(--gray-400)">${medalhas[i]||i+1}</div>
+      <div style="width:40px;height:40px;border-radius:50%;background:var(--primary-light);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--primary);font-size:16px;flex-shrink:0">${r.c.nome.charAt(0)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:14px">${r.c.nome}</div>
+        <div style="font-size:12px;color:var(--gray-400)">${r.c.area||''} · ${r.c.cargo||''}</div>
+        <div style="margin-top:6px;height:6px;background:var(--gray-100);border-radius:99px;overflow:hidden">
+          <div style="height:100%;width:${barra}%;background:${corBarra};border-radius:99px;transition:width .4s"></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:20px;text-align:center;flex-shrink:0">
+        <div><div style="font-size:18px;font-weight:800;color:${corBarra}">${r.nota>0?r.nota.toFixed(1):'—'}</div><div style="font-size:10px;color:var(--gray-400)">Nota</div></div>
+        <div><div style="font-size:18px;font-weight:800;color:var(--primary)">${r.docs}</div><div style="font-size:10px;color:var(--gray-400)">Docs</div></div>
+        <div><div style="font-size:18px;font-weight:800;color:var(--gray-700)">${r.avs}</div><div style="font-size:10px;color:var(--gray-400)">Aval.</div></div>
+        <div style="min-width:60px"><div style="font-size:18px;font-weight:800;color:var(--gray-800)">${r.nota>0||r.docs>0?r.pontuacao.toFixed(1):'—'}</div><div style="font-size:10px;color:var(--gray-400)">Pontos</div></div>
+      </div>
+    </div>`;
+  }).join('') : '<p class="text-muted" style="text-align:center;padding:40px">Nenhum dado disponível.</p>';
+}
 
 // ===================== BIBLIOTECA =====================
 const BIB_CATEGORIAS = {
