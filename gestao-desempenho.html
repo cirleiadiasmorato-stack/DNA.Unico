@@ -1245,7 +1245,21 @@ async function loadDB() {
   }
 }
 
-function saveDB() {
+async function saveDB() {
+  // Busca dados frescos do Firestore antes de salvar para não sobrescrever dados de outros usuários
+  try {
+    const snap = await FIRESTORE_DOC.get();
+    if (snap.exists) {
+      const remoto = snap.data();
+      // Mescla: mantém colaboradores remotos que não estão no DB local
+      if (remoto.colaboradores && remoto.colaboradores.length) {
+        const idsLocais = new Set(DB.colaboradores.map(c => c.id));
+        const extras = remoto.colaboradores.filter(c => !idsLocais.has(c.id));
+        if (extras.length) DB.colaboradores = [...DB.colaboradores, ...extras];
+      }
+    }
+  } catch(e) { /* sem conexão, salva com dados locais */ }
+
   const data = {
     colaboradores: DB.colaboradores,
     avaliacoes: DB.avaliacoes,
