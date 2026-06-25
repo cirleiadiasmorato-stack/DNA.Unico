@@ -1127,7 +1127,8 @@ const NAV_CONFIG = {
   ],
   gestor: [
     {id:'dashboard', label:'Dashboard', icon:'home'},
-    {id:'avaliacoes', label:'Avaliações', icon:'star', section:'Gestão'},
+    {id:'colaboradores', label:'Minha Equipe', icon:'users', section:'Gestão'},
+    {id:'avaliacoes', label:'Avaliações', icon:'star'},
     {id:'feedback', label:'Feedbacks', icon:'message'},
     {id:'pdi', label:'PDI', icon:'target'},
     {id:'kpis', label:'KPIs', icon:'chart-bar'},
@@ -1810,7 +1811,10 @@ function drawEquipeChart() {
 function renderColaboradores() {
   const tbody = document.getElementById('tbody-colaboradores');
   if (!tbody) return;
-  const lista = DB.colaboradores;
+  const u = DB.currentUser;
+  const lista = u.perfil === 'gestor'
+    ? DB.colaboradores.filter(c => c.gestor === u.nome)
+    : DB.colaboradores;
   tbody.innerHTML = lista.map(c=>`<tr>
     <td><div class="flex-gap"><div class="mini-avatar">${c.nome.charAt(0)}</div>${c.nome}</div></td>
     <td>${c.email}</td>
@@ -1836,22 +1840,31 @@ function editarColaborador(id) {
   document.getElementById('col-cargo').value = c.cargo;
   document.getElementById('col-perfil').value = c.perfil;
   document.querySelector('#modal-colaborador .modal-header h2').textContent = 'Editar Colaborador';
-  // gestor select
+  const u = DB.currentUser;
   const gs = document.getElementById('col-gestor');
+  const pf = document.getElementById('col-perfil');
   if (gs) { Array.from(gs.options).forEach(o=>{ o.selected = o.value===c.gestor; }); }
+  if (u.perfil === 'gestor') {
+    if (gs) gs.disabled = true;
+    if (pf) pf.disabled = true;
+  } else {
+    if (gs) gs.disabled = false;
+    if (pf) pf.disabled = false;
+  }
   openModal('modal-colaborador');
 }
 
 function salvarColaborador() {
   const id = document.getElementById('col-id').value;
+  const u = DB.currentUser;
   const dados = {
     nome: document.getElementById('col-nome').value.trim(),
     email: document.getElementById('col-email').value.trim(),
     senha: document.getElementById('col-senha').value.trim(),
     area: document.getElementById('col-area').value.trim(),
     cargo: document.getElementById('col-cargo').value.trim(),
-    gestor: document.getElementById('col-gestor').value,
-    perfil: document.getElementById('col-perfil').value,
+    gestor: u.perfil === 'gestor' ? u.nome : document.getElementById('col-gestor').value,
+    perfil: u.perfil === 'gestor' ? 'colaborador' : document.getElementById('col-perfil').value,
   };
   if (!dados.nome || !dados.email) { alert('Nome e e-mail são obrigatórios.'); return; }
   if (id) {
@@ -1869,12 +1882,23 @@ function salvarColaborador() {
 }
 
 function novoColaboradorModal() {
+  const u = DB.currentUser;
   document.getElementById('col-id').value = '';
   document.getElementById('col-nome').value = '';
   document.getElementById('col-email').value = '';
   document.getElementById('col-senha').value = '';
   document.getElementById('col-area').value = '';
   document.getElementById('col-cargo').value = '';
+  // Se gestor, pré-seleciona e bloqueia o campo gestor/perfil
+  const gs = document.getElementById('col-gestor');
+  const pf = document.getElementById('col-perfil');
+  if (u.perfil === 'gestor') {
+    if (gs) { gs.value = u.nome; gs.disabled = true; }
+    if (pf) { pf.value = 'colaborador'; pf.disabled = true; }
+  } else {
+    if (gs) gs.disabled = false;
+    if (pf) { pf.disabled = false; pf.value = 'colaborador'; }
+  }
   document.querySelector('#modal-colaborador .modal-header h2').textContent = 'Novo Colaborador';
   openModal('modal-colaborador');
 }
