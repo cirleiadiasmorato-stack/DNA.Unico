@@ -547,7 +547,10 @@ tr:hover td { background:var(--gray-50); }
           <h1>Gestão de Colaboradores</h1>
           <p>Gerencie usuários, áreas e cargos</p>
         </div>
-        <button class="btn btn-primary-sm" onclick="novoColaboradorModal()">+ Novo Colaborador</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-outline btn-sm" onclick="sincronizarColaboradores(this)">↻ Atualizar</button>
+          <button class="btn btn-primary-sm" onclick="novoColaboradorModal()">+ Novo Colaborador</button>
+        </div>
       </div>
       <div class="card">
         <div class="table-wrap">
@@ -1392,7 +1395,16 @@ function navigateTo(pageId) {
   if (page) page.classList.add('active');
   const navBtn = document.getElementById('nav-' + pageId);
   if (navBtn) navBtn.classList.add('active');
-  renderPage(pageId);
+  // Páginas que precisam de dados sempre frescos do Firebase
+  const paginasSync = ['colaboradores','dashboard','ranking','kpis'];
+  if (paginasSync.includes(pageId)) {
+    FIRESTORE_DOC.get().then(snap => {
+      if (snap.exists) { applyData(snap.data()); localStorage.setItem(STORE_KEY, JSON.stringify(snap.data())); }
+      renderPage(pageId);
+    }).catch(() => renderPage(pageId));
+  } else {
+    renderPage(pageId);
+  }
 }
 
 function renderPage(id) {
@@ -1411,6 +1423,30 @@ function renderPage(id) {
 }
 
 function renderAll() { renderDashboard(); }
+
+async function recarregarERenderar(pageId) {
+  try {
+    const snap = await FIRESTORE_DOC.get();
+    if (snap.exists) applyData(snap.data());
+  } catch(e) {}
+  renderPage(pageId);
+}
+
+async function sincronizarColaboradores(btn) {
+  if (btn) { btn.textContent = '↻ Buscando...'; btn.disabled = true; }
+  try {
+    const snap = await FIRESTORE_DOC.get();
+    if (snap.exists) {
+      applyData(snap.data());
+      localStorage.setItem(STORE_KEY, JSON.stringify(snap.data()));
+    }
+  } catch(e) {
+    alert('Erro ao buscar dados. Verifique sua conexão.');
+  }
+  renderColaboradores();
+  initForms();
+  if (btn) { btn.textContent = '↻ Atualizar'; btn.disabled = false; }
+}
 
 // ===================== HELPERS =====================
 function calcNotaPilar(pilar) {
