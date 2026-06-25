@@ -1205,13 +1205,33 @@ function applyData(p) {
   }
 }
 
+let _firestoreListenerAtivo = false;
+
+function ativarListenerTempoReal() {
+  if (_firestoreListenerAtivo) return;
+  _firestoreListenerAtivo = true;
+  FIRESTORE_DOC.onSnapshot(snap => {
+    if (!snap.exists) return;
+    applyData(snap.data());
+    localStorage.setItem(STORE_KEY, JSON.stringify(snap.data()));
+    // Atualiza a página atual se o usuário já estiver logado
+    if (DB.currentUser) {
+      const paginaAtiva = document.querySelector('.nav-item.active');
+      if (paginaAtiva) {
+        const id = paginaAtiva.id?.replace('nav-', '');
+        if (id) renderPage(id);
+      }
+      initForms();
+    }
+  }, e => console.warn('Listener Firebase erro:', e));
+}
+
 async function loadDB() {
   try {
     const snap = await FIRESTORE_DOC.get();
     if (snap.exists) {
       applyData(snap.data());
     } else {
-      // Primeira vez: salva dados padrão no Firestore
       await saveDB();
     }
   } catch(e) {
@@ -1238,6 +1258,7 @@ function saveDB() {
 // Inicialização assíncrona
 (async () => {
   await loadDB();
+  ativarListenerTempoReal();
   document.getElementById('loading-screen').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
   carregarCredenciais();
