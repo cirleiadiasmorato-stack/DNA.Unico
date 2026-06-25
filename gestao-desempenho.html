@@ -1190,6 +1190,7 @@ const fsdb = firebase.firestore();
 const FIRESTORE_DOC = fsdb.collection('dados').doc('principal');
 
 function applyData(p) {
+  p = mergeArquivosLocais ? mergeArquivosLocais(p) : p;
   const defaults = DB.colaboradores;
   if (p.avaliacoes) DB.avaliacoes = p.avaliacoes;
   if (p.feedbacks) DB.feedbacks = p.feedbacks;
@@ -1254,8 +1255,36 @@ function saveDB() {
     biblioteca: DB.biblioteca,
     config: DB.config
   };
+  // Salva tudo no localStorage (inclui arquivos base64)
   localStorage.setItem(STORE_KEY, JSON.stringify(data));
-  return FIRESTORE_DOC.set(data).catch(e => console.warn('Erro ao salvar no Firebase:', e));
+
+  // Para o Firestore remove os dados binários (base64) para não exceder 1MB
+  const dataFirestore = {
+    ...data,
+    documentos: (data.documentos||[]).map(d => { const {dados,...rest}=d; return rest; }),
+    biblioteca: (data.biblioteca||[]).map(d => { const {dados,...rest}=d; return rest; }),
+  };
+  return FIRESTORE_DOC.set(dataFirestore).catch(e => console.warn('Erro ao salvar no Firebase:', e));
+}
+
+// Ao aplicar dados do Firestore, preserva arquivos base64 do localStorage local
+function mergeArquivosLocais(dbRemoto) {
+  try {
+    const local = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
+    if (local.documentos) {
+      dbRemoto.documentos = (dbRemoto.documentos||[]).map(d => {
+        const loc = (local.documentos||[]).find(l=>l.id===d.id);
+        return loc ? {...d, dados: loc.dados, nomeArquivo: loc.nomeArquivo} : d;
+      });
+    }
+    if (local.biblioteca) {
+      dbRemoto.biblioteca = (dbRemoto.biblioteca||[]).map(d => {
+        const loc = (local.biblioteca||[]).find(l=>l.id===d.id);
+        return loc ? {...d, dados: loc.dados, nomeArquivo: loc.nomeArquivo} : d;
+      });
+    }
+  } catch(e) {}
+  return dbRemoto;
 }
 
 // Inicialização assíncrona
