@@ -415,7 +415,7 @@ tr:hover td { background:var(--gray-50); }
           <div class="table-wrap">
             <table id="tabela-avaliacoes">
               <thead><tr>
-                <th>Colaborador</th><th>Ciclo</th><th>Cultura</th><th>Performance</th><th>Comportamento</th><th>Nota Geral</th><th>Status</th><th>Ações</th>
+                <th>Colaborador</th><th>Ciclo</th><th>Cultura</th><th>Performance</th><th>Comportamento</th><th>Nota Geral</th><th>Status</th><th>Aceite</th><th>Ações</th>
               </tr></thead>
               <tbody id="tbody-avaliacoes"></tbody>
             </table>
@@ -856,6 +856,21 @@ tr:hover td { background:var(--gray-50); }
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('modal-pdi')">Cancelar</button>
       <button class="btn btn-success" onclick="salvarPDI()">Criar PDI</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Ver Avaliação -->
+<div class="modal-overlay" id="modal-ver-avaliacao">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <h2>Avaliação de Desempenho</h2>
+      <button class="modal-close" onclick="closeModal('modal-ver-avaliacao')">✕</button>
+    </div>
+    <div id="ver-avaliacao-conteudo" style="padding:8px 0"></div>
+    <div class="modal-footer" style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
+      <div id="ver-avaliacao-aceite"></div>
+      <button class="btn btn-outline" onclick="closeModal('modal-ver-avaliacao')">Fechar</button>
     </div>
   </div>
 </div>
@@ -1421,6 +1436,7 @@ function renderAvaliacoes() {
       <td>${notaBadge(nb)}</td>
       <td><strong>${notaBadge(ng)}</strong></td>
       <td><span class="badge badge-green">Concluída</span></td>
+      <td>${av.aceite?.aceito ? `<span class="badge badge-green" title="Aceito em ${av.aceite.data} por ${av.aceite.nome}">✓ Aceito</span>` : `<span class="badge badge-yellow">Pendente</span>`}</td>
       <td><button class="btn btn-ghost btn-sm" onclick="verAvaliacao(${av.id})">Ver</button></td>
     </tr>`;
   }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--gray-400);padding:24px">Nenhuma avaliação registrada</td></tr>';
@@ -1521,6 +1537,14 @@ function renderFeedbacks() {
       </div>
       ${f.prazo?`<div class="mt-8"><span class="text-muted">Prazo: ${f.prazo}</span></div>`:''}
       ${f.arquivos&&f.arquivos.length?`<div class="mt-8">${f.arquivos.map(a=>`<span class="badge badge-gray">📎 ${a.name}</span>`).join(' ')}</div>`:''}
+      <div class="mt-8" style="border-top:1px solid var(--gray-100);padding-top:10px;display:flex;align-items:center;gap:12px;">
+        ${f.aceite?.aceito
+          ? `<span class="badge badge-green">✓ Aceito por ${f.aceite.nome} em ${f.aceite.data}</span>`
+          : u.perfil==='colaborador' && f.colaboradorId===u.id
+            ? `<button class="btn btn-primary-sm" onclick="aceitarFeedback(${f.id})">✍ Aceitar Feedback</button><span class="text-muted" style="font-size:12px">Aguardando aceite do colaborador</span>`
+            : `<span class="badge badge-yellow">Aguardando aceite</span>`
+        }
+      </div>
     </div>`;
   }).join('') || '<p class="text-muted" style="text-align:center;padding:32px">Nenhum feedback registrado ainda</p>';
 }
@@ -1627,6 +1651,14 @@ function renderPDIs() {
           </div>`).join('')}
       </div>
       ${p.prazo?`<div class="mt-8 text-muted">Prazo: ${p.prazo}</div>`:''}
+      <div class="mt-8" style="border-top:1px solid var(--gray-100);padding-top:10px;display:flex;align-items:center;gap:12px;">
+        ${p.aceite?.aceito
+          ? `<span class="badge badge-green">✓ Aceito por ${p.aceite.nome} em ${p.aceite.data}</span>`
+          : u.perfil==='colaborador' && p.colaboradorId===u.id
+            ? `<button class="btn btn-primary-sm" onclick="aceitarPDI(${p.id})">✍ Aceitar PDI</button><span class="text-muted" style="font-size:12px">Aguardando aceite do colaborador</span>`
+            : `<span class="badge badge-yellow">Aguardando aceite</span>`
+        }
+      </div>
     </div>`;
   }).join('') || '<p class="text-muted" style="text-align:center;padding:32px">Nenhum PDI cadastrado ainda</p>';
 }
@@ -2046,6 +2078,97 @@ document.addEventListener('DOMContentLoaded', ()=>{
     });
   });
 });
+
+// ===================== VER AVALIAÇÃO =====================
+function verAvaliacao(id) {
+  const av = DB.avaliacoes.find(a=>a.id===id);
+  if (!av) return;
+  const c = getColaborador(av.colaboradorId);
+  const u = DB.currentUser;
+  const pilares = [
+    {key:'cultura', label:'Cultura', itens:['comprometimento','etica','focoCliente','trabalhoEquipe','responsabilidade']},
+    {key:'performance', label:'Performance', itens:['metas','produtividade','qualidade','eficiencia','prioridades']},
+    {key:'comportamento', label:'Comportamento', itens:['comunicacao','proatividade','organizacao','inteligenciaEmocional','adaptabilidade']}
+  ];
+  const pilaresHtml = pilares.map(p=>`
+    <div style="margin-bottom:12px">
+      <strong style="font-size:13px;color:var(--primary)">${p.label}</strong>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:4px">
+        ${p.itens.map(it=>`<div style="font-size:12px;color:var(--gray-600);display:flex;justify-content:space-between;padding:2px 0">
+          <span>${it.charAt(0).toUpperCase()+it.slice(1)}</span>
+          <span>${'★'.repeat(av[p.key][it]||0)}${'☆'.repeat(5-(av[p.key][it]||0))}</span>
+        </div>`).join('')}
+      </div>
+    </div>`).join('');
+  document.getElementById('ver-avaliacao-conteudo').innerHTML = `
+    <div style="margin-bottom:12px"><strong>${c?c.nome:'—'}</strong> · <span class="badge badge-purple">${av.ciclo}</span></div>
+    ${pilaresHtml}
+    ${av.obs?`<div style="margin-top:8px;font-size:13px;color:var(--gray-600)"><strong>Observações:</strong> ${av.obs}</div>`:''}
+  `;
+  const aceiteEl = document.getElementById('ver-avaliacao-aceite');
+  if (av.aceite?.aceito) {
+    aceiteEl.innerHTML = `<span class="badge badge-green">✓ Aceito por ${av.aceite.nome} em ${av.aceite.data}</span>`;
+  } else if (u.perfil==='colaborador' && av.colaboradorId===u.id) {
+    aceiteEl.innerHTML = `<button class="btn btn-success" onclick="aceitarAvaliacaoModal(${av.id})">✍ Aceitar Avaliação</button>`;
+  } else {
+    aceiteEl.innerHTML = `<span class="badge badge-yellow">Aguardando aceite</span>`;
+  }
+  openModal('modal-ver-avaliacao');
+}
+
+// ===================== ACEITE =====================
+function aceitarAvaliacaoModal(id) {
+  aceitarAvaliacao(id);
+  closeModal('modal-ver-avaliacao');
+}
+
+function aceitarAvaliacao(id) {
+  const av = DB.avaliacoes.find(a=>a.id===id);
+  if (!av) return;
+  if (av.aceite?.aceito) { alert('Esta avaliação já foi aceita.'); return; }
+  if (!confirm('Ao confirmar, você declara que leu e está ciente desta avaliação. Deseja prosseguir?')) return;
+  const agora = new Date();
+  av.aceite = {
+    aceito: true,
+    nome: DB.currentUser.nome,
+    data: agora.toLocaleDateString('pt-BR') + ' às ' + agora.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'})
+  };
+  saveDB();
+  renderAvaliacoes();
+  alert('Avaliação aceita com sucesso!');
+}
+
+function aceitarFeedback(id) {
+  const f = DB.feedbacks.find(f=>f.id===id);
+  if (!f) return;
+  if (f.aceite?.aceito) { alert('Este feedback já foi aceito.'); return; }
+  if (!confirm('Ao confirmar, você declara que leu e está ciente deste feedback. Deseja prosseguir?')) return;
+  const agora = new Date();
+  f.aceite = {
+    aceito: true,
+    nome: DB.currentUser.nome,
+    data: agora.toLocaleDateString('pt-BR') + ' às ' + agora.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'})
+  };
+  saveDB();
+  renderFeedbacks();
+  alert('Feedback aceito com sucesso!');
+}
+
+function aceitarPDI(id) {
+  const p = DB.pdis.find(p=>p.id===id);
+  if (!p) return;
+  if (p.aceite?.aceito) { alert('Este PDI já foi aceito.'); return; }
+  if (!confirm('Ao confirmar, você declara ciência e compromisso com este PDI. Deseja prosseguir?')) return;
+  const agora = new Date();
+  p.aceite = {
+    aceito: true,
+    nome: DB.currentUser.nome,
+    data: agora.toLocaleDateString('pt-BR') + ' às ' + agora.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'})
+  };
+  saveDB();
+  renderPDIs();
+  alert('PDI aceito com sucesso!');
+}
 </script>
 </body>
 </html>
