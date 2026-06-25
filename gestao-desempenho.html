@@ -1245,18 +1245,23 @@ async function loadDB() {
   }
 }
 
+function _mergeById(local, remoto) {
+  if (!remoto || !remoto.length) return local;
+  const idsLocais = new Set(local.map(x => x.id));
+  const extras = remoto.filter(x => !idsLocais.has(x.id));
+  return extras.length ? [...local, ...extras] : local;
+}
+
 async function saveDB() {
   // Busca dados frescos do Firestore antes de salvar para não sobrescrever dados de outros usuários
   try {
     const snap = await FIRESTORE_DOC.get();
     if (snap.exists) {
-      const remoto = snap.data();
-      // Mescla: mantém colaboradores remotos que não estão no DB local
-      if (remoto.colaboradores && remoto.colaboradores.length) {
-        const idsLocais = new Set(DB.colaboradores.map(c => c.id));
-        const extras = remoto.colaboradores.filter(c => !idsLocais.has(c.id));
-        if (extras.length) DB.colaboradores = [...DB.colaboradores, ...extras];
-      }
+      const r = snap.data();
+      DB.colaboradores = _mergeById(DB.colaboradores, r.colaboradores);
+      DB.avaliacoes    = _mergeById(DB.avaliacoes,    r.avaliacoes);
+      DB.feedbacks     = _mergeById(DB.feedbacks,     r.feedbacks);
+      DB.pdis          = _mergeById(DB.pdis,          r.pdis);
     }
   } catch(e) { /* sem conexão, salva com dados locais */ }
 
