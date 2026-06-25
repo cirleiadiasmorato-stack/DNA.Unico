@@ -601,6 +601,35 @@ tr:hover td { background:var(--gray-50); }
       </div>
     </div>
 
+    <!-- MEU DESEMPENHO (GESTOR) -->
+    <div class="page" id="page-meu-desempenho">
+      <div class="page-header">
+        <h1>Meu Desempenho</h1>
+        <p>Suas avaliações e documentos pessoais de desempenho</p>
+      </div>
+      <div class="grid-4 mb-16">
+        <div class="metric-card"><div class="metric-label">Nota Cultura</div><div class="metric-value" id="gmd-cultura">—</div></div>
+        <div class="metric-card"><div class="metric-label">Nota Performance</div><div class="metric-value" id="gmd-performance">—</div></div>
+        <div class="metric-card"><div class="metric-label">Nota Comportamento</div><div class="metric-value" id="gmd-comportamento">—</div></div>
+        <div class="metric-card"><div class="metric-label">Avaliações</div><div class="metric-value" id="gmd-total">—</div></div>
+      </div>
+      <div class="card mb-16">
+        <div class="card-title">Histórico de Avaliações</div>
+        <div id="gmd-historico" style="overflow-x:auto">
+          <p class="text-muted" style="padding:16px">Nenhuma avaliação registrada ainda.</p>
+        </div>
+      </div>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <div class="card-title" style="margin:0">Documentos Pessoais</div>
+          <button class="btn btn-primary-sm" onclick="openModal('modal-doc-gestor')">+ Adicionar Documento</button>
+        </div>
+        <div id="gmd-documentos">
+          <p class="text-muted" style="text-align:center;padding:24px">Nenhum documento adicionado.</p>
+        </div>
+      </div>
+    </div>
+
     <!-- AUTOAVALIAÇÃO -->
     <div class="page" id="page-autoavaliacao">
       <div class="page-header">
@@ -864,6 +893,42 @@ tr:hover td { background:var(--gray-50); }
   </div>
 </div>
 
+<!-- Modal Documento Gestor -->
+<div class="modal-overlay" id="modal-doc-gestor">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header">
+      <h2>Adicionar Documento</h2>
+      <button class="modal-close" onclick="closeModal('modal-doc-gestor')">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Descrição do Documento</label>
+      <input type="text" class="form-control" id="doc-descricao" placeholder="Ex: Certificado de Liderança, Relatório Q1...">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Tipo</label>
+      <select class="form-control" id="doc-tipo">
+        <option value="certificado">Certificado</option>
+        <option value="relatorio">Relatório de Desempenho</option>
+        <option value="treinamento">Comprovante de Treinamento</option>
+        <option value="meta">Comprovante de Meta</option>
+        <option value="outro">Outro</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Arquivo</label>
+      <div class="upload-zone" id="doc-upload-zone" onclick="document.getElementById('doc-file-input').click()" style="cursor:pointer;border:2px dashed var(--gray-300);border-radius:8px;padding:24px;text-align:center;color:var(--gray-400)">
+        <div>📎 Clique para selecionar ou arraste o arquivo</div>
+        <div id="doc-file-nome" style="margin-top:8px;font-size:13px;color:var(--primary)"></div>
+      </div>
+      <input type="file" id="doc-file-input" style="display:none" onchange="onDocFileSelect(this)">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-doc-gestor')">Cancelar</button>
+      <button class="btn btn-success" onclick="salvarDocGestor()">Salvar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal Alterar Senha -->
 <div class="modal-overlay" id="modal-alterar-senha">
   <div class="modal" style="max-width:400px">
@@ -988,6 +1053,7 @@ let DB = {
     {id:2, colaboradorId:2, gestor:'Mariana Costa', data:'2024-02-20', fortes:'Código de alta qualidade e boas revisões.', melhoria:'Comunicação com o negócio precisa melhorar.', acoes:'Participar de reuniões de alinhamento com stakeholders.', prazo:'2024-04-01', status:'pendente', arquivos:[]},
     {id:3, colaboradorId:4, gestor:'Carla Dias', data:'2024-03-01', fortes:'Boa vontade e disposição.', melhoria:'Cumprimento de metas e pontualidade nas entregas.', acoes:'Definir rotina diária. Reunião semanal de acompanhamento.', prazo:'2024-04-15', status:'pendente', arquivos:[]},
   ],
+  documentos: [],
   pdis: [
     {id:1, colaboradorId:1, objetivo:'Desenvolver habilidades de liderança para assumir posição de coordenação', indicador:'Liderar projeto com pelo menos 3 pessoas até Q4 2024', prazo:'2024-12-31', acoes:[{texto:'Participar de curso de liderança online',status:'concluido'},{texto:'Fazer mentoria com a Carla Dias',status:'concluido'},{texto:'Liderar projeto piloto com equipe pequena',status:'em andamento'},{texto:'Apresentar resultado do projeto para diretoria',status:'nao iniciado'}], arquivos:[]},
     {id:2, colaboradorId:2, objetivo:'Melhorar comunicação com stakeholders não-técnicos', indicador:'Reduzir retrabalho por mal-entendimento de requisitos de 30% para 10%', prazo:'2024-09-30', acoes:[{texto:'Curso de comunicação executiva',status:'em andamento'},{texto:'Ler livro: "Comunicação Não-Violenta"',status:'concluido'},{texto:'Fazer apresentação mensal para a área de negócios',status:'nao iniciado'}], arquivos:[]},
@@ -1013,6 +1079,7 @@ function applyData(p) {
   if (p.avaliacoes) DB.avaliacoes = p.avaliacoes;
   if (p.feedbacks) DB.feedbacks = p.feedbacks;
   if (p.pdis) DB.pdis = p.pdis;
+  if (p.documentos) DB.documentos = p.documentos;
   if (p.config) DB.config = {...DB.config, ...p.config};
   if (p.colaboradores && p.colaboradores.length) {
     DB.colaboradores = p.colaboradores.map(salvo => {
@@ -1047,6 +1114,7 @@ function saveDB() {
     avaliacoes: DB.avaliacoes,
     feedbacks: DB.feedbacks,
     pdis: DB.pdis,
+    documentos: DB.documentos,
     config: DB.config
   };
   localStorage.setItem(STORE_KEY, JSON.stringify(data));
@@ -1127,6 +1195,7 @@ const NAV_CONFIG = {
   ],
   gestor: [
     {id:'dashboard', label:'Dashboard', icon:'home'},
+    {id:'meu-desempenho', label:'Meu Desempenho', icon:'trending-up', section:'Pessoal'},
     {id:'colaboradores', label:'Minha Equipe', icon:'users', section:'Gestão'},
     {id:'avaliacoes', label:'Avaliações', icon:'star'},
     {id:'feedback', label:'Feedbacks', icon:'message'},
@@ -1193,6 +1262,7 @@ function renderPage(id) {
   if (id === 'kpis') renderKPIs();
   if (id === 'colaboradores') renderColaboradores();
   if (id === 'minha-evolucao') renderMinhaEvolucao();
+  if (id === 'meu-desempenho') renderMeuDesempenho();
   if (id === 'autoavaliacao') initAutoAvaliacao();
   if (id === 'configuracoes') renderConfiguracoes();
 }
@@ -1409,8 +1479,8 @@ function initForms() {
   if (u.perfil === 'admin') {
     paraFormulario = DB.colaboradores.slice();
   } else if (u.perfil === 'gestor') {
-    // gestor vê apenas os colaboradores da sua equipe (diretos + subequipes)
-    paraFormulario = DB.colaboradores.filter(c => c.gestor === u.nome);
+    // gestor vê sua equipe + a si mesmo (para ser avaliado)
+    paraFormulario = DB.colaboradores.filter(c => c.gestor === u.nome || c.id === u.id);
     const subgestores = DB.colaboradores.filter(c => c.gestor === u.nome && c.perfil === 'gestor');
     subgestores.forEach(sg => {
       DB.colaboradores.filter(c => c.gestor === sg.nome)
@@ -2133,6 +2203,112 @@ document.addEventListener('DOMContentLoaded', ()=>{
     });
   });
 });
+
+// ===================== MEU DESEMPENHO (GESTOR) =====================
+function renderMeuDesempenho() {
+  const u = DB.currentUser;
+  const avs = DB.avaliacoes.filter(a => a.colaboradorId === u.id);
+  const ultima = avs.length ? avs[avs.length - 1] : null;
+
+  document.getElementById('gmd-total').textContent = avs.length;
+  if (ultima) {
+    document.getElementById('gmd-cultura').textContent = calcNotaPilar(ultima.cultura).toFixed(1);
+    document.getElementById('gmd-performance').textContent = calcNotaPilar(ultima.performance).toFixed(1);
+    document.getElementById('gmd-comportamento').textContent = calcNotaPilar(ultima.comportamento).toFixed(1);
+  } else {
+    ['gmd-cultura','gmd-performance','gmd-comportamento'].forEach(id => document.getElementById(id).textContent = '—');
+  }
+
+  const hist = document.getElementById('gmd-historico');
+  if (!avs.length) {
+    hist.innerHTML = '<p class="text-muted" style="padding:16px">Nenhuma avaliação registrada ainda.</p>';
+  } else {
+    hist.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="background:var(--gray-50)">
+        <th style="padding:8px;text-align:left">Ciclo</th>
+        <th style="padding:8px">Cultura</th>
+        <th style="padding:8px">Performance</th>
+        <th style="padding:8px">Comportamento</th>
+        <th style="padding:8px">Nota Geral</th>
+        <th style="padding:8px">Aceite</th>
+      </tr></thead>
+      <tbody>${avs.map(av => {
+        const nc = calcNotaPilar(av.cultura), np = calcNotaPilar(av.performance), nb = calcNotaPilar(av.comportamento);
+        const ng = ((nc+np+nb)/3).toFixed(1);
+        return `<tr style="border-top:1px solid var(--gray-100)">
+          <td style="padding:8px"><span class="badge badge-purple">${av.ciclo}</span></td>
+          <td style="padding:8px;text-align:center">${nc.toFixed(1)}</td>
+          <td style="padding:8px;text-align:center">${np.toFixed(1)}</td>
+          <td style="padding:8px;text-align:center">${nb.toFixed(1)}</td>
+          <td style="padding:8px;text-align:center"><strong>${ng}</strong></td>
+          <td style="padding:8px;text-align:center">${av.aceite?.aceito ? `<span class="badge badge-green">✓ Aceito</span>` : `<button class="btn btn-primary-sm" onclick="aceitarAvaliacao(${av.id});renderMeuDesempenho()">Aceitar</button>`}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>`;
+  }
+
+  const docs = (DB.documentos || []).filter(d => d.userId === u.id);
+  const docsEl = document.getElementById('gmd-documentos');
+  if (!docs.length) {
+    docsEl.innerHTML = '<p class="text-muted" style="text-align:center;padding:24px">Nenhum documento adicionado.</p>';
+  } else {
+    const tipoLabel = {certificado:'Certificado', relatorio:'Relatório', treinamento:'Treinamento', meta:'Meta', outro:'Outro'};
+    docsEl.innerHTML = `<div style="display:flex;flex-direction:column;gap:10px">${docs.map(d => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;border:1px solid var(--gray-200);border-radius:8px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="font-size:24px">📄</span>
+          <div>
+            <div style="font-weight:600;font-size:14px">${d.descricao}</div>
+            <div style="font-size:12px;color:var(--gray-500)">${tipoLabel[d.tipo]||d.tipo} · ${d.data} · ${d.nomeArquivo||'Sem arquivo'}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          ${d.dados ? `<a href="${d.dados}" download="${d.nomeArquivo}" class="btn btn-outline btn-sm">⬇ Baixar</a>` : ''}
+          <button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="removerDocGestor(${d.id})">🗑️</button>
+        </div>
+      </div>`).join('')}</div>`;
+  }
+}
+
+let _docFileData = null;
+function onDocFileSelect(input) {
+  const file = input.files[0];
+  if (!file) return;
+  document.getElementById('doc-file-nome').textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = e => { _docFileData = {dados: e.target.result, nomeArquivo: file.name}; };
+  reader.readAsDataURL(file);
+}
+
+function salvarDocGestor() {
+  const descricao = document.getElementById('doc-descricao').value.trim();
+  if (!descricao) { alert('Informe a descrição do documento.'); return; }
+  const doc = {
+    id: Date.now(),
+    userId: DB.currentUser.id,
+    descricao,
+    tipo: document.getElementById('doc-tipo').value,
+    data: new Date().toLocaleDateString('pt-BR'),
+    nomeArquivo: _docFileData?.nomeArquivo || null,
+    dados: _docFileData?.dados || null
+  };
+  if (!DB.documentos) DB.documentos = [];
+  DB.documentos.push(doc);
+  saveDB();
+  closeModal('modal-doc-gestor');
+  document.getElementById('doc-descricao').value = '';
+  document.getElementById('doc-file-nome').textContent = '';
+  _docFileData = null;
+  renderMeuDesempenho();
+  alert('Documento salvo!');
+}
+
+function removerDocGestor(id) {
+  if (!confirm('Remover este documento?')) return;
+  DB.documentos = DB.documentos.filter(d => d.id !== id);
+  saveDB();
+  renderMeuDesempenho();
+}
 
 // ===================== ALTERAR SENHA =====================
 function alterarSenha() {
