@@ -637,15 +637,20 @@ tr:hover td { background:var(--gray-50); }
     <div class="page" id="page-autoavaliacao">
       <div class="page-header">
         <h1>Autoavaliação</h1>
-        <p>Avalie seu próprio desempenho neste ciclo</p>
+        <p>Avalie seu próprio desempenho e acompanhe seu histórico</p>
       </div>
-      <div class="card">
+
+      <!-- Histórico de autoavaliações -->
+      <div id="auto-historico-section" class="mb-16"></div>
+
+      <!-- Formulário nova autoavaliação -->
+      <div class="card" id="auto-form-card">
+        <h3 style="margin-bottom:16px;font-size:15px;color:var(--gray-700)">Nova Autoavaliação</h3>
+        <div id="auto-aviso-ciclo" style="display:none;margin-bottom:12px;padding:10px 14px;background:var(--warning-50,#fffbeb);border:1px solid var(--warning-200,#fde68a);border-radius:8px;color:#92400e;font-size:13px"></div>
         <div class="form-row mb-16">
           <div class="form-group">
             <label class="form-label">Ciclo</label>
-            <select class="form-control" id="auto-ciclo">
-              <option>Q1 2024</option><option>Q2 2024</option><option selected>Q3 2024</option><option>Q4 2024</option>
-            </select>
+            <select class="form-control" id="auto-ciclo" onchange="verificarCicloAuto()"></select>
           </div>
           <div class="form-group">
             <label class="form-label">Data</label>
@@ -656,7 +661,7 @@ tr:hover td { background:var(--gray-50); }
           <button class="tab active" onclick="switchTab('auto','cultura')">🌱 Cultura</button>
           <button class="tab" onclick="switchTab('auto','performance')">📈 Performance</button>
           <button class="tab" onclick="switchTab('auto','comportamento')">🧠 Comportamento</button>
-          <button class="tab" onclick="switchTab('auto','anexos')">📎 Textos & Anexos</button>
+          <button class="tab" onclick="switchTab('auto','anexos')">📎 Comentários</button>
         </div>
         <div class="tab-content active" id="tab-auto-cultura">
           <div class="rating-group" id="ratings-auto-cultura"></div>
@@ -669,17 +674,16 @@ tr:hover td { background:var(--gray-50); }
         </div>
         <div class="tab-content" id="tab-auto-anexos">
           <div class="form-group">
-            <label class="form-label">Comentários e Observações</label>
-            <textarea class="form-control" id="auto-comentarios" rows="5" placeholder="Descreva suas conquistas, desafios e aprendizados neste ciclo..."></textarea>
+            <label class="form-label">Conquistas deste ciclo</label>
+            <textarea class="form-control" id="auto-conquistas" rows="3" placeholder="O que você realizou com destaque neste ciclo?"></textarea>
           </div>
           <div class="form-group">
-            <label class="form-label">Anexar Arquivos e Imagens</label>
-            <div class="upload-area" onclick="document.getElementById('auto-file-input').click()" id="auto-upload-area">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--gray-400)" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-              <p>Clique para anexar ou arraste arquivos aqui<br><span style="font-size:11px;color:var(--gray-400)">Imagens, PDFs, documentos (máx. 10MB por arquivo)</span></p>
-            </div>
-            <input type="file" id="auto-file-input" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx" style="display:none" onchange="handleFileUpload(this, 'auto-files')">
-            <div class="file-list" id="auto-files"></div>
+            <label class="form-label">Desafios enfrentados</label>
+            <textarea class="form-control" id="auto-desafios" rows="3" placeholder="Quais foram os maiores desafios?"></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">O que pretendo desenvolver</label>
+            <textarea class="form-control" id="auto-comentarios" rows="3" placeholder="Quais competências ou habilidades quer desenvolver no próximo ciclo?"></textarea>
           </div>
         </div>
         <div class="modal-actions">
@@ -2310,32 +2314,112 @@ function renderMinhaEvolucao() {
 function initAutoAvaliacao() {
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('auto-data').value = today;
+
+  // Ciclos dinâmicos
+  const cicloEl = document.getElementById('auto-ciclo');
+  const ano = DB.config.anoAtual || new Date().getFullYear();
+  const ciclos = (DB.config.ciclosAtivos || ['Q1','Q2','Q3','Q4']).map(q => `${q} ${ano}`);
+  cicloEl.innerHTML = ciclos.map(c => `<option value="${c}">${c}</option>`).join('');
+  // Seleciona o trimestre atual
+  const mesAtual = new Date().getMonth();
+  const qAtual = mesAtual < 3 ? 0 : mesAtual < 6 ? 1 : mesAtual < 9 ? 2 : 3;
+  if (cicloEl.options[qAtual]) cicloEl.selectedIndex = Math.min(qAtual, cicloEl.options.length - 1);
+
+  verificarCicloAuto();
+  renderHistoricoAuto();
+}
+
+function verificarCicloAuto() {
+  const ciclo = document.getElementById('auto-ciclo').value;
+  const u = DB.currentUser;
+  const jaExiste = (DB.avaliacoes || []).find(a => a.colaboradorId === u.id && a.ciclo === ciclo && a.tipo === 'auto');
+  const aviso = document.getElementById('auto-aviso-ciclo');
+  if (jaExiste) {
+    aviso.style.display = 'block';
+    aviso.textContent = `⚠️ Você já enviou uma autoavaliação para ${ciclo}. Ao salvar novamente, a anterior será substituída.`;
+  } else {
+    aviso.style.display = 'none';
+  }
+}
+
+function renderHistoricoAuto() {
+  const u = DB.currentUser;
+  const minhas = (DB.avaliacoes || []).filter(a => a.colaboradorId === u.id && a.tipo === 'auto')
+    .sort((a,b) => b.id - a.id);
+  const sec = document.getElementById('auto-historico-section');
+  if (!minhas.length) { sec.innerHTML = ''; return; }
+
+  function mediaAv(av) {
+    const todos = [...Object.values(av.cultura||{}), ...Object.values(av.performance||{}), ...Object.values(av.comportamento||{})];
+    if (!todos.length) return 0;
+    return (todos.reduce((s,v)=>s+v,0)/todos.length).toFixed(1);
+  }
+  function barColor(m) { return m >= 4 ? 'var(--success-500,#22c55e)' : m >= 3 ? 'var(--warning-500,#f59e0b)' : 'var(--danger-500,#ef4444)'; }
+
+  sec.innerHTML = `
+    <div class="card" style="margin-bottom:0">
+      <h3 style="font-size:15px;color:var(--gray-700);margin-bottom:14px">Histórico de Autoavaliações</h3>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        ${minhas.map(av => {
+          const m = parseFloat(mediaAv(av));
+          const pct = (m/5*100).toFixed(0);
+          return `<div style="border:1px solid var(--gray-200);border-radius:10px;padding:14px 16px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <span style="font-weight:600;font-size:14px">${av.ciclo}</span>
+              <span style="font-size:13px;font-weight:700;color:${barColor(m)}">${m}/5</span>
+            </div>
+            <div style="height:6px;background:var(--gray-100);border-radius:4px;overflow:hidden;margin-bottom:8px">
+              <div style="height:100%;width:${pct}%;background:${barColor(m)};border-radius:4px"></div>
+            </div>
+            <div style="display:flex;gap:16px;font-size:12px;color:var(--gray-500)">
+              <span>Cultura: <b>${(Object.values(av.cultura||{}).reduce((s,v)=>s+v,0)/Math.max(1,Object.values(av.cultura||{}).length)).toFixed(1)}</b></span>
+              <span>Performance: <b>${(Object.values(av.performance||{}).reduce((s,v)=>s+v,0)/Math.max(1,Object.values(av.performance||{}).length)).toFixed(1)}</b></span>
+              <span>Comportamento: <b>${(Object.values(av.comportamento||{}).reduce((s,v)=>s+v,0)/Math.max(1,Object.values(av.comportamento||{}).length)).toFixed(1)}</b></span>
+            </div>
+            ${av.obs ? `<p style="margin-top:8px;font-size:12px;color:var(--gray-600);font-style:italic">"${av.obs}"</p>` : ''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
 }
 
 function salvarAutoAvaliacao() {
-  const defaults = {comprometimento:3,etica:3,focoCliente:3,trabalhoEquipe:3,responsabilidade:3};
+  const defaults  = {comprometimento:3,etica:3,focoCliente:3,trabalhoEquipe:3,responsabilidade:3};
   const defaultsP = {metas:3,produtividade:3,qualidade:3,eficiencia:3,prioridades:3};
   const defaultsB = {comunicacao:3,proatividade:3,organizacao:3,inteligenciaEmocional:3,adaptabilidade:3};
+  const ciclo = document.getElementById('auto-ciclo').value;
+  const u = DB.currentUser;
+
+  // Remove autoavaliação anterior do mesmo ciclo
+  DB.avaliacoes = DB.avaliacoes.filter(a => !(a.colaboradorId === u.id && a.ciclo === ciclo && a.tipo === 'auto'));
+
+  const conquistas = document.getElementById('auto-conquistas')?.value || '';
+  const desafios   = document.getElementById('auto-desafios')?.value || '';
+  const proximos   = document.getElementById('auto-comentarios')?.value || '';
+  const obs = [conquistas && `Conquistas: ${conquistas}`, desafios && `Desafios: ${desafios}`, proximos && `Próximo ciclo: ${proximos}`].filter(Boolean).join('\n\n');
+
   const av = {
     id: Date.now(),
-    colaboradorId: DB.currentUser.id,
-    ciclo: document.getElementById('auto-ciclo').value,
-    obs: document.getElementById('auto-comentarios').value,
-    cultura: {...defaults,...autoRatings.cultura},
-    performance: {...defaultsP,...autoRatings.performance},
-    comportamento: {...defaultsB,...autoRatings.comportamento},
+    colaboradorId: u.id,
+    ciclo,
+    obs,
+    cultura:      {...defaults,  ...autoRatings.cultura},
+    performance:  {...defaultsP, ...autoRatings.performance},
+    comportamento:{...defaultsB, ...autoRatings.comportamento},
     arquivos: [], status:'autoavaliacao', tipo:'auto'
   };
   DB.avaliacoes.push(av);
   saveDB();
   alert('Autoavaliação salva com sucesso!');
+  resetAutoAvaliacao();
+  renderHistoricoAuto();
+  verificarCicloAuto();
 }
 
 function resetAutoAvaliacao() {
   autoRatings = {cultura:{},performance:{},comportamento:{}};
   ['cultura','performance','comportamento'].forEach(p=>buildRatingGroup(`ratings-auto-${p}`,p,autoRatings,'auto'));
-  document.getElementById('auto-comentarios').value='';
-  document.getElementById('auto-files').innerHTML='';
+  ['auto-conquistas','auto-desafios','auto-comentarios'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
 }
 
 // ===================== FILE UPLOAD =====================
