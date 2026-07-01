@@ -1792,7 +1792,10 @@ function renderAvaliacoes() {
       <td><strong>${notaBadge(ng)}</strong></td>
       <td><span class="badge badge-green">Concluída</span></td>
       <td>${av.aceite?.aceito ? `<span class="badge badge-green" title="Aceito em ${av.aceite.data} por ${av.aceite.nome}">✓ Aceito</span>` : `<span class="badge badge-yellow">Pendente</span>`}</td>
-      <td><button class="btn btn-ghost btn-sm" onclick="verAvaliacao(${av.id})">Ver</button></td>
+      <td style="display:flex;gap:6px">
+        <button class="btn btn-ghost btn-sm" onclick="verAvaliacao(${av.id})">Ver</button>
+        ${DB.currentUser.perfil !== 'colaborador' ? `<button class="btn btn-ghost btn-sm" style="color:var(--danger,#ef4444)" onclick="excluirAvaliacao(${av.id})">🗑</button>` : ''}
+      </td>
     </tr>`;
   }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--gray-400);padding:24px">Nenhuma avaliação registrada</td></tr>';
   // chart usa colaboradores visíveis
@@ -1816,6 +1819,14 @@ function drawComparativoChart() {
     data:{labels:cols.map(c=>c.nome.split(' ')[0]),datasets},
     options:{responsive:true,maintainAspectRatio:false,scales:{y:{min:0,max:5}},plugins:{legend:{position:'bottom'}}}
   });
+}
+
+function excluirAvaliacao(id) {
+  if (!confirm('Excluir esta avaliação? Esta ação não pode ser desfeita.')) return;
+  DB.avaliacoes = DB.avaliacoes.filter(a => a.id !== id);
+  saveDB();
+  renderAvaliacoes();
+  renderDashboard();
 }
 
 function salvarAvaliacao() {
