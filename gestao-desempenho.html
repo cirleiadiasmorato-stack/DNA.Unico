@@ -1821,7 +1821,13 @@ function drawComparativoChart() {
   });
 }
 
+function _podExcluir() {
+  const p = DB.currentUser?.perfil;
+  return p === 'admin' || p === 'gestor';
+}
+
 function excluirAvaliacao(id) {
+  if (!_podExcluir()) return alert('Sem permissão para excluir.');
   if (!confirm('Excluir esta avaliação? Esta ação não pode ser desfeita.')) return;
   DB.avaliacoes = DB.avaliacoes.filter(a => a.id !== id);
   saveDB();
@@ -2448,6 +2454,7 @@ function salvarConfiguracoes() {
 }
 
 function removeColaborador(id) {
+  if (!_podExcluir()) return alert('Sem permissão para excluir.');
   if (!confirm('Remover este colaborador?')) return;
   DB.colaboradores = DB.colaboradores.filter(c=>c.id!==id);
   saveDB();
@@ -2917,6 +2924,7 @@ function salvarDocBiblioteca() {
 }
 
 function removerBibDoc(id) {
+  if (!_podExcluir()) return alert('Sem permissão para excluir.');
   if (!confirm('Remover este documento da biblioteca?')) return;
   DB.biblioteca = (DB.biblioteca||[]).filter(d=>d.id!==id);
   saveDB();
@@ -3023,6 +3031,7 @@ function salvarDocGestor() {
 }
 
 function removerDocGestor(id) {
+  if (!_podExcluir()) return alert('Sem permissão para excluir.');
   if (!confirm('Remover este documento?')) return;
   DB.documentos = DB.documentos.filter(d => d.id !== id);
   saveDB();
