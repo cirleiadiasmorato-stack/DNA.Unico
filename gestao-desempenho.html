@@ -475,7 +475,10 @@ tr:hover td { background:var(--gray-50); }
           <h1>PDI – Plano de Desenvolvimento Individual</h1>
           <p>Acompanhe objetivos, ações e evolução de cada colaborador</p>
         </div>
-        <button class="btn btn-primary-sm" onclick="openModal('modal-pdi')">+ Novo PDI</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-outline btn-sm" onclick="abrirGerarPDI()">✨ Gerar PDI Inteligente</button>
+          <button class="btn btn-primary-sm" onclick="openModal('modal-pdi')">+ Novo PDI</button>
+        </div>
       </div>
       <div class="card mb-16">
         <div class="flex-between mb-16">
@@ -954,6 +957,25 @@ tr:hover td { background:var(--gray-50); }
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('modal-pdi')">Cancelar</button>
       <button class="btn btn-success" onclick="salvarPDI()">Criar PDI</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Gerar PDI Inteligente -->
+<div class="modal-overlay" id="modal-gerar-pdi">
+  <div class="modal" style="max-width:620px">
+    <div class="modal-header">
+      <h2>✨ Gerar PDI Inteligente</h2>
+      <button class="modal-close" onclick="closeModal('modal-gerar-pdi')">✕</button>
+    </div>
+    <div class="form-group" id="gerar-pdi-select-wrap">
+      <label class="form-label">Colaborador</label>
+      <select class="form-control" id="gerar-pdi-colaborador" onchange="analisarParaPDI()"></select>
+    </div>
+    <div id="gerar-pdi-resultado"></div>
+    <div class="modal-actions" id="gerar-pdi-acoes" style="display:none">
+      <button class="btn btn-outline" onclick="closeModal('modal-gerar-pdi')">Cancelar</button>
+      <button class="btn btn-success" onclick="aplicarPDIGerado()">Usar este PDI</button>
     </div>
   </div>
 </div>
@@ -2021,6 +2043,179 @@ function salvarPDI() {
   closeModal('modal-pdi');
   renderPDIs();
   alert('PDI criado com sucesso!');
+}
+
+// ===================== PDI INTELIGENTE =====================
+const PDI_SUGESTOES = {
+  comprometimento:    { objetivo:'Fortalecer o comprometimento com metas e prazos da equipe', acoes:['Participar ativamente das reuniões de alinhamento de metas','Criar rotina semanal de revisão de prioridades','Estabelecer checkpoints quinzenais com o gestor'] },
+  etica:              { objetivo:'Reforçar postura ética e transparência nas relações profissionais', acoes:['Revisar o Código de Conduta da empresa','Participar de treinamento sobre compliance e ética','Compartilhar aprendizados com a equipe em reunião'] },
+  focoCliente:        { objetivo:'Desenvolver orientação ao cliente e melhoria da experiência', acoes:['Mapear jornada do cliente na sua área de atuação','Participar de pelo menos 2 interações diretas com clientes por mês','Coletar e analisar feedbacks de clientes trimestralmente'] },
+  trabalhoEquipe:     { objetivo:'Aprimorar colaboração e trabalho em equipe', acoes:['Participar de projeto colaborativo com outra área','Liderar ou co-liderar uma iniciativa de equipe','Praticar escuta ativa em reuniões e registrar pontos discutidos'] },
+  responsabilidade:   { objetivo:'Elevar o nível de responsabilidade nas entregas', acoes:['Documentar e comunicar andamento de tarefas semanalmente','Antecipar riscos e comunicar ao gestor com antecedência','Concluir ao menos 90% das tarefas dentro do prazo no trimestre'] },
+  metas:              { objetivo:'Melhorar cumprimento de metas e resultados esperados', acoes:['Revisar e detalhar as metas do ciclo com o gestor','Criar plano de ação mensal vinculado às metas','Monitorar indicadores semanalmente e ajustar rota se necessário'] },
+  produtividade:      { objetivo:'Aumentar produtividade e volume de entregas com qualidade', acoes:['Mapear e eliminar interrupções na rotina de trabalho','Adotar técnica de gestão de tempo (ex: Pomodoro ou time-blocking)','Revisar ferramentas e processos utilizados para ganho de eficiência'] },
+  qualidade:          { objetivo:'Elevar a qualidade das entregas e reduzir retrabalho', acoes:['Criar checklist de qualidade antes de entregar qualquer atividade','Solicitar revisão por par em entregas críticas','Registrar e aprender com cada retrabalho identificado'] },
+  eficiencia:         { objetivo:'Otimizar uso de recursos e tempo nas atividades', acoes:['Identificar 3 atividades que podem ser automatizadas ou simplificadas','Participar de treinamento de produtividade ou ferramentas de trabalho','Reduzir tempo médio de execução de tarefas recorrentes em 20%'] },
+  prioridades:        { objetivo:'Desenvolver gestão eficiente de prioridades e agenda', acoes:['Usar matriz de urgência/importância para organizar tarefas diárias','Alinhar com gestor as top 3 prioridades semanais','Revisar backlog toda segunda-feira e reorganizar conforme demandas'] },
+  comunicacao:        { objetivo:'Aprimorar comunicação clara e assertiva com a equipe', acoes:['Participar de curso ou workshop de comunicação assertiva','Praticar registro escrito de decisões e alinhamentos em reuniões','Solicitar feedback mensal do gestor sobre clareza nas comunicações'] },
+  proatividade:       { objetivo:'Desenvolver postura proativa e antecipação de problemas', acoes:['Apresentar ao gestor uma melhoria de processo por mês','Antecipar necessidades da equipe antes de serem solicitadas','Participar voluntariamente de projetos além das responsabilidades atuais'] },
+  organizacao:        { objetivo:'Melhorar organização pessoal e gestão de documentos/tarefas', acoes:['Adotar sistema de organização de tarefas (ex: Trello, Notion ou planilha)','Manter pasta de trabalho organizada e atualizada semanalmente','Criar modelo padrão para as principais entregas recorrentes'] },
+  inteligenciaEmocional: { objetivo:'Desenvolver inteligência emocional e equilíbrio sob pressão', acoes:['Participar de treinamento ou leitura sobre inteligência emocional','Praticar técnicas de respiração ou mindfulness em momentos de pressão','Solicitar feedback sobre comportamento em situações desafiadoras'] },
+  adaptabilidade:     { objetivo:'Aumentar flexibilidade e capacidade de adaptação a mudanças', acoes:['Participar voluntariamente de projetos em áreas diferentes','Buscar aprender uma nova ferramenta ou processo por trimestre','Registrar aprendizados obtidos com situações de mudança'] },
+};
+
+let _pdiGerado = null;
+
+function abrirGerarPDI() {
+  const u = DB.currentUser;
+  const selectWrap = document.getElementById('gerar-pdi-select-wrap');
+  const sel = document.getElementById('gerar-pdi-colaborador');
+
+  if (u.perfil === 'colaborador') {
+    selectWrap.style.display = 'none';
+    sel.innerHTML = `<option value="${u.id}">${u.nome}</option>`;
+  } else {
+    selectWrap.style.display = 'block';
+    const lista = getColaboradoresVisiveis().filter(c => c.perfil !== 'admin');
+    sel.innerHTML = lista.map(c => `<option value="${c.id}">${c.nome} – ${c.area}</option>`).join('');
+  }
+
+  document.getElementById('gerar-pdi-resultado').innerHTML = '';
+  document.getElementById('gerar-pdi-acoes').style.display = 'none';
+  _pdiGerado = null;
+  openModal('modal-gerar-pdi');
+  analisarParaPDI();
+}
+
+function analisarParaPDI() {
+  const colId = parseInt(document.getElementById('gerar-pdi-colaborador').value);
+  const col = getColaborador(colId);
+  if (!col) return;
+
+  // Coleta avaliações (gestor + auto)
+  const avs = (DB.avaliacoes || []).filter(a => a.colaboradorId === colId);
+  // Coleta feedbacks
+  const fbs = (DB.feedbacks || []).filter(f => f.colaboradorId === colId);
+
+  if (!avs.length && !fbs.length) {
+    document.getElementById('gerar-pdi-resultado').innerHTML = `
+      <div style="text-align:center;padding:32px;color:var(--gray-500)">
+        <div style="font-size:32px;margin-bottom:8px">📋</div>
+        <p>Nenhuma avaliação ou feedback encontrado para <strong>${col.nome}</strong>.</p>
+        <p style="font-size:13px">Registre avaliações ou feedbacks primeiro para gerar um PDI automático.</p>
+      </div>`;
+    document.getElementById('gerar-pdi-acoes').style.display = 'none';
+    return;
+  }
+
+  // Calcula média por critério (gestor + auto somados)
+  const somasCrit = {};
+  const contagemCrit = {};
+  const pilares = ['cultura','performance','comportamento'];
+  avs.forEach(av => {
+    pilares.forEach(p => {
+      Object.entries(av[p] || {}).forEach(([k, v]) => {
+        somasCrit[k] = (somasCrit[k] || 0) + v;
+        contagemCrit[k] = (contagemCrit[k] || 0) + 1;
+      });
+    });
+  });
+
+  const medias = Object.entries(somasCrit).map(([k, s]) => ({
+    key: k,
+    label: [...CRITERIA.cultura,...CRITERIA.performance,...CRITERIA.comportamento].find(c=>c.key===k)?.label || k,
+    media: s / contagemCrit[k]
+  })).sort((a,b) => a.media - b.media);
+
+  // Top 3 pontos mais fracos
+  const pontosFracos = medias.slice(0, Math.min(3, medias.length));
+
+  // Extrai melhorias dos feedbacks
+  const melhorias = fbs.map(f => f.melhoria).filter(Boolean);
+  const acoesFeedback = fbs.map(f => f.acoes).filter(Boolean);
+
+  // Monta PDI sugerido com base no ponto mais fraco
+  const principal = pontosFracos[0];
+  const sugestao = PDI_SUGESTOES[principal?.key] || { objetivo: 'Desenvolvimento de competências essenciais', acoes: [] };
+
+  // Prazo: 90 dias a partir de hoje
+  const prazo = new Date(Date.now() + 90*24*60*60*1000).toISOString().split('T')[0];
+
+  // Monta ações: sugestão base + ações dos feedbacks
+  const acoes = [...sugestao.acoes];
+  acoesFeedback.forEach(a => { if (a && !acoes.includes(a)) acoes.push(a); });
+
+  _pdiGerado = {
+    colaboradorId: colId,
+    objetivo: sugestao.objetivo,
+    indicador: `Atingir média ≥ 4,0 em "${principal?.label}" nas próximas avaliações`,
+    prazo,
+    acoes: acoes.map(t => ({ texto: t, status: 'nao iniciado' })),
+    arquivos: []
+  };
+
+  // Renderiza análise
+  const corPonto = m => m >= 4 ? '#22c55e' : m >= 3 ? '#f59e0b' : '#ef4444';
+  document.getElementById('gerar-pdi-resultado').innerHTML = `
+    <div style="margin-bottom:16px">
+      <p style="font-size:13px;color:var(--gray-600);margin-bottom:12px">
+        Análise baseada em <strong>${avs.length} avaliação(ões)</strong> e <strong>${fbs.length} feedback(s)</strong> de <strong>${col.nome}</strong>.
+      </p>
+
+      <div style="margin-bottom:14px">
+        <p style="font-size:12px;font-weight:600;color:var(--gray-500);text-transform:uppercase;margin-bottom:8px">Critérios com maior oportunidade de crescimento</p>
+        ${pontosFracos.map(p => `
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+            <span style="font-size:13px;color:var(--gray-700);width:180px">${p.label}</span>
+            <div style="flex:1;height:8px;background:var(--gray-100);border-radius:4px;overflow:hidden">
+              <div style="height:100%;width:${(p.media/5*100).toFixed(0)}%;background:${corPonto(p.media)};border-radius:4px"></div>
+            </div>
+            <span style="font-size:13px;font-weight:700;color:${corPonto(p.media)};width:36px">${p.media.toFixed(1)}</span>
+          </div>`).join('')}
+      </div>
+
+      ${melhorias.length ? `<div style="margin-bottom:14px;padding:10px 14px;background:var(--gray-50);border-radius:8px;border:1px solid var(--gray-200)">
+        <p style="font-size:12px;font-weight:600;color:var(--gray-500);margin-bottom:6px">PONTOS DE MELHORIA (feedbacks do gestor)</p>
+        ${melhorias.map(m=>`<p style="font-size:13px;color:var(--gray-700);margin-bottom:4px">• ${m}</p>`).join('')}
+      </div>` : ''}
+
+      <div style="padding:14px;background:var(--primary-50,#eff6ff);border:1px solid var(--primary-200,#bfdbfe);border-radius:10px">
+        <p style="font-size:12px;font-weight:600;color:var(--primary-700,#1d4ed8);margin-bottom:6px">PDI SUGERIDO</p>
+        <p style="font-size:13px;color:var(--gray-800);margin-bottom:4px"><strong>🎯 Objetivo:</strong> ${_pdiGerado.objetivo}</p>
+        <p style="font-size:13px;color:var(--gray-800);margin-bottom:8px"><strong>📊 Indicador:</strong> ${_pdiGerado.indicador}</p>
+        <p style="font-size:12px;font-weight:600;color:var(--gray-500);margin-bottom:6px">AÇÕES PROPOSTAS</p>
+        ${_pdiGerado.acoes.map((a,i)=>`<p style="font-size:13px;color:var(--gray-700);margin-bottom:4px">${i+1}. ${a.texto}</p>`).join('')}
+        <p style="font-size:12px;color:var(--gray-500);margin-top:8px">📅 Prazo sugerido: ${prazo}</p>
+      </div>
+    </div>`;
+
+  document.getElementById('gerar-pdi-acoes').style.display = 'flex';
+}
+
+function aplicarPDIGerado() {
+  if (!_pdiGerado) return;
+  // Preenche o modal de PDI com os dados gerados
+  const sel = document.getElementById('pdi-colaborador');
+  if (sel) sel.value = _pdiGerado.colaboradorId;
+  document.getElementById('pdi-objetivo').value = _pdiGerado.objetivo;
+  document.getElementById('pdi-indicador').value = _pdiGerado.indicador;
+  document.getElementById('pdi-prazo').value = _pdiGerado.prazo;
+  // Preenche ações
+  const lista = document.getElementById('pdi-acoes-lista');
+  lista.innerHTML = '';
+  _pdiGerado.acoes.forEach(a => {
+    lista.innerHTML += `<div class="pdi-action">
+      <input class="form-control pdi-acao-input" value="${a.texto}" placeholder="Descreva a ação">
+      <select class="form-control" style="width:140px">
+        <option value="nao iniciado" selected>Não iniciado</option>
+        <option value="em andamento">Em andamento</option>
+        <option value="concluido">Concluído</option>
+      </select>
+      <button class="btn btn-ghost btn-sm" onclick="this.parentElement.remove()">✕</button>
+    </div>`;
+  });
+  closeModal('modal-gerar-pdi');
+  openModal('modal-pdi');
 }
 
 function filterPDIs(q) {
