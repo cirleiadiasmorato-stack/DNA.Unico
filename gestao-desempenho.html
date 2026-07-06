@@ -1794,7 +1794,8 @@ function renderAvaliacoes() {
       <td>${av.aceite?.aceito ? `<span class="badge badge-green" title="Aceito em ${av.aceite.data} por ${av.aceite.nome}">✓ Aceito</span>` : `<span class="badge badge-yellow">Pendente</span>`}</td>
       <td style="display:flex;gap:6px">
         <button class="btn btn-ghost btn-sm" onclick="verAvaliacao(${av.id})">Ver</button>
-        ${DB.currentUser.perfil !== 'colaborador' ? `<button class="btn btn-ghost btn-sm" style="color:var(--danger,#ef4444)" onclick="excluirAvaliacao(${av.id})">🗑</button>` : ''}
+        ${_podExcluir() ? `<button class="btn btn-ghost btn-sm" onclick="editarAvaliacao(${av.id})">✏️</button>` : ''}
+        ${_podExcluir() ? `<button class="btn btn-ghost btn-sm" style="color:var(--danger,#ef4444)" onclick="excluirAvaliacao(${av.id})">🗑</button>` : ''}
       </td>
     </tr>`;
   }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--gray-400);padding:24px">Nenhuma avaliação registrada</td></tr>';
@@ -1835,30 +1836,89 @@ function excluirAvaliacao(id) {
   renderDashboard();
 }
 
+let _editandoAvaliacaoId = null;
+
+function editarAvaliacao(id) {
+  if (!_podExcluir()) return alert('Sem permissão para editar.');
+  const av = DB.avaliacoes.find(a => a.id === id);
+  if (!av) return;
+
+  _editandoAvaliacaoId = id;
+  initForms();
+
+  // Título do modal
+  document.querySelector('#modal-avaliacao .modal-header h2').textContent = 'Editar Avaliação de Desempenho';
+
+  // Colaborador e ciclo
+  const selCol = document.getElementById('av-colaborador');
+  if (selCol) selCol.value = av.colaboradorId;
+  const selCiclo = document.getElementById('av-ciclo');
+  if (selCiclo) selCiclo.value = av.ciclo;
+
+  // Observações
+  document.getElementById('av-obs').value = av.obs || '';
+
+  // Preenche estrelas de cada critério
+  avRatings = {
+    cultura: {...(av.cultura || {})},
+    performance: {...(av.performance || {})},
+    comportamento: {...(av.comportamento || {})}
+  };
+  ['cultura','performance','comportamento'].forEach(pilar => {
+    buildRatingGroup(`ratings-av-${pilar}`, pilar, avRatings, 'av');
+    Object.entries(avRatings[pilar] || {}).forEach(([key, val]) => {
+      setRating('av', pilar, key, val);
+    });
+  });
+
+  // Volta para aba cultura
+  switchTab('av', 'cultura');
+  openModal('modal-avaliacao');
+}
+
 function salvarAvaliacao() {
   const colId = parseInt(document.getElementById('av-colaborador').value);
   const ciclo = document.getElementById('av-ciclo').value;
   const obs = document.getElementById('av-obs').value;
 
-  const defaults = {comprometimento:3,etica:3,focoCliente:3,trabalhoEquipe:3,responsabilidade:3};
+  const defaults  = {comprometimento:3,etica:3,focoCliente:3,trabalhoEquipe:3,responsabilidade:3};
   const defaultsP = {metas:3,produtividade:3,qualidade:3,eficiencia:3,prioridades:3};
   const defaultsB = {comunicacao:3,proatividade:3,organizacao:3,inteligenciaEmocional:3,adaptabilidade:3};
 
-  const av = {
-    id: Date.now(), colaboradorId: colId, ciclo, obs,
-    cultura: {...defaults, ...avRatings.cultura},
-    performance: {...defaultsP, ...avRatings.performance},
-    comportamento: {...defaultsB, ...avRatings.comportamento},
-    arquivos: [], status:'concluida'
-  };
-  DB.avaliacoes.push(av);
+  if (_editandoAvaliacaoId) {
+    // Modo edição: atualiza avaliação existente
+    const idx = DB.avaliacoes.findIndex(a => a.id === _editandoAvaliacaoId);
+    if (idx !== -1) {
+      DB.avaliacoes[idx] = {
+        ...DB.avaliacoes[idx],
+        colaboradorId: colId, ciclo, obs,
+        cultura:       {...defaults,  ...avRatings.cultura},
+        performance:   {...defaultsP, ...avRatings.performance},
+        comportamento: {...defaultsB, ...avRatings.comportamento},
+      };
+    }
+    _editandoAvaliacaoId = null;
+    document.querySelector('#modal-avaliacao .modal-header h2').textContent = 'Nova Avaliação de Desempenho';
+    alert('Avaliação atualizada com sucesso!');
+  } else {
+    // Modo criação
+    const av = {
+      id: Date.now(), colaboradorId: colId, ciclo, obs,
+      cultura:       {...defaults,  ...avRatings.cultura},
+      performance:   {...defaultsP, ...avRatings.performance},
+      comportamento: {...defaultsB, ...avRatings.comportamento},
+      arquivos: [], status:'concluida'
+    };
+    DB.avaliacoes.push(av);
+    alert('Avaliação salva com sucesso!');
+  }
+
   saveDB();
   closeModal('modal-avaliacao');
   avRatings = {cultura:{},performance:{},comportamento:{}};
   initForms();
   renderAvaliacoes();
   renderDashboard();
-  alert('Avaliação salva com sucesso!');
 }
 
 function filterAvaliacoes(q) {
