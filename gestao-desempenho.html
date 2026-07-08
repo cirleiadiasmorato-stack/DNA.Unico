@@ -1244,8 +1244,8 @@ function ativarListenerTempoReal() {
     if (!snap.exists) return;
     applyData(snap.data());
     localStorage.setItem(STORE_KEY, JSON.stringify(snap.data()));
-    // Atualiza a página atual se o usuário já estiver logado
-    if (DB.currentUser) {
+    // Não atualiza formulários se um modal estiver aberto (evita perda de dados em preenchimento)
+    if (DB.currentUser && !document.querySelector('.modal-overlay.active')) {
       const paginaAtiva = document.querySelector('.nav-item.active');
       if (paginaAtiva) {
         const id = paginaAtiva.id?.replace('nav-', '');
@@ -1708,6 +1708,11 @@ function buildRatingGroup(containerId, pilar, ratingsObj, prefix) {
       </div>
       <span class="rating-val" id="${prefix}-val-${c.key}">—</span>
     </div>`).join('');
+  // Restaura valores já preenchidos no objeto de ratings
+  CRITERIA[pilar].forEach(c => {
+    const val = ratingsObj[pilar]?.[c.key];
+    if (val) setRating(prefix, pilar, c.key, val);
+  });
 }
 
 function starSVG() { return `<svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`; }
