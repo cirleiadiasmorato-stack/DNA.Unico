@@ -1952,7 +1952,9 @@ function renderFeedbacks() {
         </div>
         <div class="flex-gap">
           <span class="badge ${f.status==='concluido'?'badge-green':'badge-yellow'}">${f.status==='concluido'?'Concluído':'Pendente'}</span>
-          ${DB.currentUser.perfil!=='colaborador'?`<button class="btn btn-ghost btn-sm" onclick="toggleFeedbackStatus(${f.id})">✓ Marcar</button>`:''}
+          ${_podExcluir()?`<button class="btn btn-ghost btn-sm" onclick="toggleFeedbackStatus(${f.id})">✓ Marcar</button>`:''}
+          ${_podExcluir()?`<button class="btn btn-ghost btn-sm" onclick="editarFeedback(${f.id})">✏️</button>`:''}
+          ${_podExcluir()?`<button class="btn btn-ghost btn-sm" style="color:var(--danger,#ef4444)" onclick="excluirFeedback(${f.id})">🗑</button>`:''}
         </div>
       </div>
       <div class="feedback-section">
@@ -1986,11 +1988,37 @@ function toggleFeedbackStatus(id) {
   if (f) { f.status = f.status==='concluido'?'pendente':'concluido'; saveDB(); renderFeedbacks(); }
 }
 
+let _editandoFeedbackId = null;
+
+function editarFeedback(id) {
+  if (!_podExcluir()) return alert('Sem permissão para editar.');
+  const f = DB.feedbacks.find(f => f.id === id);
+  if (!f) return;
+  _editandoFeedbackId = id;
+  document.querySelector('#modal-feedback .modal-header h2').textContent = 'Editar Feedback';
+  const sel = document.getElementById('fb-colaborador');
+  if (sel) sel.value = f.colaboradorId;
+  document.getElementById('fb-data').value = f.data || '';
+  document.getElementById('fb-fortes').value = f.fortes || '';
+  document.getElementById('fb-melhoria').value = f.melhoria || '';
+  document.getElementById('fb-acoes').value = f.acoes || '';
+  document.getElementById('fb-prazo').value = f.prazo || '';
+  document.getElementById('fb-status').value = f.status || 'pendente';
+  openModal('modal-feedback');
+}
+
+function excluirFeedback(id) {
+  if (!_podExcluir()) return alert('Sem permissão para excluir.');
+  if (!confirm('Excluir este feedback? Esta ação não pode ser desfeita.')) return;
+  DB.feedbacks = DB.feedbacks.filter(f => f.id !== id);
+  saveDB();
+  renderFeedbacks();
+}
+
 function salvarFeedback() {
   const colId = parseInt(document.getElementById('fb-colaborador').value);
   const files = window._uploadedFiles?.['fb-files'] || [];
-  const fb = {
-    id: Date.now(),
+  const dados = {
     colaboradorId: colId,
     gestor: DB.currentUser.nome,
     data: document.getElementById('fb-data').value,
@@ -2001,11 +2029,19 @@ function salvarFeedback() {
     status: document.getElementById('fb-status').value,
     arquivos: files.map(f=>({name:f.name, size:f.size}))
   };
-  DB.feedbacks.push(fb);
+  if (_editandoFeedbackId) {
+    const idx = DB.feedbacks.findIndex(f => f.id === _editandoFeedbackId);
+    if (idx !== -1) DB.feedbacks[idx] = {...DB.feedbacks[idx], ...dados};
+    _editandoFeedbackId = null;
+    document.querySelector('#modal-feedback .modal-header h2').textContent = 'Registrar Feedback';
+    alert('Feedback atualizado!');
+  } else {
+    DB.feedbacks.push({id: Date.now(), ...dados});
+    alert('Feedback registrado!');
+  }
   saveDB();
   closeModal('modal-feedback');
   renderFeedbacks();
-  alert('Feedback registrado!');
 }
 
 function filterFeedbacks(q) {
@@ -2083,13 +2119,15 @@ function renderPDIs() {
           </div>`).join('')}
       </div>
       ${p.prazo?`<div class="mt-8 text-muted">Prazo: ${p.prazo}</div>`:''}
-      <div class="mt-8" style="border-top:1px solid var(--gray-100);padding-top:10px;display:flex;align-items:center;gap:12px;">
+      <div class="mt-8" style="border-top:1px solid var(--gray-100);padding-top:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         ${p.aceite?.aceito
           ? `<span class="badge badge-green">✓ Aceito por ${p.aceite.nome} em ${p.aceite.data}</span>`
           : u.perfil==='colaborador' && p.colaboradorId===u.id
             ? `<button class="btn btn-primary-sm" onclick="aceitarPDI(${p.id})">✍ Aceitar PDI</button><span class="text-muted" style="font-size:12px">Aguardando aceite do colaborador</span>`
             : `<span class="badge badge-yellow">Aguardando aceite</span>`
         }
+        ${_podExcluir() ? `<button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="editarPDI(${p.id})">✏️ Editar</button>` : ''}
+        ${_podExcluir() ? `<button class="btn btn-ghost btn-sm" style="color:var(--danger,#ef4444)" onclick="excluirPDI(${p.id})">🗑 Excluir</button>` : ''}
       </div>
     </div>`;
   }).join('') || '<p class="text-muted" style="text-align:center;padding:32px">Nenhum PDI cadastrado ainda</p>';
@@ -2100,6 +2138,40 @@ function updatePDIAcao(pdiId, acaoIdx, status) {
   if (pdi) { pdi.acoes[acaoIdx].status = status; saveDB(); renderPDIs(); }
 }
 
+let _editandoPDIId = null;
+
+function editarPDI(id) {
+  if (!_podExcluir()) return alert('Sem permissão para editar.');
+  const p = DB.pdis.find(p => p.id === id);
+  if (!p) return;
+  _editandoPDIId = id;
+  document.querySelector('#modal-pdi .modal-header h2').textContent = 'Editar PDI';
+  const sel = document.getElementById('pdi-colaborador');
+  if (sel) sel.value = p.colaboradorId;
+  document.getElementById('pdi-objetivo').value = p.objetivo || '';
+  document.getElementById('pdi-indicador').value = p.indicador || '';
+  document.getElementById('pdi-prazo').value = p.prazo || '';
+  const lista = document.getElementById('pdi-acoes-lista');
+  lista.innerHTML = (p.acoes || []).map(a => `<div class="pdi-action">
+    <input class="form-control pdi-acao-input" value="${a.texto}" placeholder="Descreva a ação">
+    <select class="form-control" style="width:140px">
+      <option value="nao iniciado" ${a.status==='nao iniciado'?'selected':''}>Não iniciado</option>
+      <option value="em andamento" ${a.status==='em andamento'?'selected':''}>Em andamento</option>
+      <option value="concluido" ${a.status==='concluido'?'selected':''}>Concluído</option>
+    </select>
+    <button class="btn btn-ghost btn-sm" onclick="this.parentElement.remove()">✕</button>
+  </div>`).join('');
+  openModal('modal-pdi');
+}
+
+function excluirPDI(id) {
+  if (!_podExcluir()) return alert('Sem permissão para excluir.');
+  if (!confirm('Excluir este PDI? Esta ação não pode ser desfeita.')) return;
+  DB.pdis = DB.pdis.filter(p => p.id !== id);
+  saveDB();
+  renderPDIs();
+}
+
 function salvarPDI() {
   const colId = parseInt(document.getElementById('pdi-colaborador').value);
   const acaoInputs = document.querySelectorAll('#pdi-acoes-lista .pdi-action');
@@ -2108,18 +2180,27 @@ function salvarPDI() {
     status: el.querySelector('select')?.value || 'nao iniciado'
   })).filter(a=>a.texto.trim());
 
-  const pdi = {
-    id: Date.now(), colaboradorId: colId,
+  const dados = {
+    colaboradorId: colId,
     objetivo: document.getElementById('pdi-objetivo').value,
     indicador: document.getElementById('pdi-indicador').value,
     prazo: document.getElementById('pdi-prazo').value,
-    acoes, arquivos: []
+    acoes
   };
-  DB.pdis.push(pdi);
+
+  if (_editandoPDIId) {
+    const idx = DB.pdis.findIndex(p => p.id === _editandoPDIId);
+    if (idx !== -1) DB.pdis[idx] = {...DB.pdis[idx], ...dados};
+    _editandoPDIId = null;
+    document.querySelector('#modal-pdi .modal-header h2').textContent = 'Novo PDI – Plano de Desenvolvimento';
+    alert('PDI atualizado com sucesso!');
+  } else {
+    DB.pdis.push({id: Date.now(), ...dados, arquivos: []});
+    alert('PDI criado com sucesso!');
+  }
   saveDB();
   closeModal('modal-pdi');
   renderPDIs();
-  alert('PDI criado com sucesso!');
 }
 
 // ===================== PDI INTELIGENTE =====================
