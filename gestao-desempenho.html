@@ -1284,10 +1284,9 @@ async function saveDB() {
     const snap = await FIRESTORE_DOC.get();
     if (snap.exists) {
       const r = snap.data();
+      // Mescla apenas colaboradores (gestores de áreas diferentes podem cadastrar em paralelo)
+      // Avaliações, feedbacks e PDIs NÃO são mesclados para que exclusões funcionem corretamente
       DB.colaboradores = _mergeById(DB.colaboradores, r.colaboradores);
-      DB.avaliacoes    = _mergeById(DB.avaliacoes,    r.avaliacoes);
-      DB.feedbacks     = _mergeById(DB.feedbacks,     r.feedbacks);
-      DB.pdis          = _mergeById(DB.pdis,          r.pdis);
     }
   } catch(e) { /* sem conexão, salva com dados locais */ }
 
