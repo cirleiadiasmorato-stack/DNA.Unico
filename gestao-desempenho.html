@@ -1831,11 +1831,20 @@ function _podExcluir() {
   return p === 'admin' || p === 'gestor';
 }
 
+// Atualiza apenas um campo no Firestore (evita race condition em exclusões)
+function salvarCampoDireto(campo, valor) {
+  const local = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
+  local[campo] = valor;
+  localStorage.setItem(STORE_KEY, JSON.stringify(local));
+  return FIRESTORE_DOC.update({ [campo]: valor })
+    .catch(e => console.warn('Erro ao atualizar campo:', e));
+}
+
 function excluirAvaliacao(id) {
   if (!_podExcluir()) return alert('Sem permissão para excluir.');
   if (!confirm('Excluir esta avaliação? Esta ação não pode ser desfeita.')) return;
   DB.avaliacoes = DB.avaliacoes.filter(a => a.id !== id);
-  saveDB();
+  salvarCampoDireto('avaliacoes', DB.avaliacoes);
   renderAvaliacoes();
   renderDashboard();
 }
@@ -2015,7 +2024,7 @@ function excluirFeedback(id) {
   if (!_podExcluir()) return alert('Sem permissão para excluir.');
   if (!confirm('Excluir este feedback? Esta ação não pode ser desfeita.')) return;
   DB.feedbacks = DB.feedbacks.filter(f => f.id !== id);
-  saveDB();
+  salvarCampoDireto('feedbacks', DB.feedbacks);
   renderFeedbacks();
 }
 
@@ -2172,7 +2181,7 @@ function excluirPDI(id) {
   if (!_podExcluir()) return alert('Sem permissão para excluir.');
   if (!confirm('Excluir este PDI? Esta ação não pode ser desfeita.')) return;
   DB.pdis = DB.pdis.filter(p => p.id !== id);
-  saveDB();
+  salvarCampoDireto('pdis', DB.pdis);
   renderPDIs();
 }
 
@@ -2602,7 +2611,7 @@ function removeColaborador(id) {
   if (!_podExcluir()) return alert('Sem permissão para excluir.');
   if (!confirm('Remover este colaborador?')) return;
   DB.colaboradores = DB.colaboradores.filter(c=>c.id!==id);
-  saveDB();
+  salvarCampoDireto('colaboradores', DB.colaboradores);
   renderColaboradores();
 }
 
