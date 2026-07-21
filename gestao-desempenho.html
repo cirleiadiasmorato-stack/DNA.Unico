@@ -1218,12 +1218,6 @@ const FIRESTORE_DOC = fsdb.collection('dados').doc('principal');
 function applyData(p) {
   p = mergeArquivosLocais ? mergeArquivosLocais(p) : p;
   const defaults = DB.colaboradores;
-  if (p.avaliacoes) DB.avaliacoes = p.avaliacoes;
-  if (p.feedbacks) DB.feedbacks = p.feedbacks;
-  if (p.pdis) DB.pdis = p.pdis;
-  if (p.documentos) DB.documentos = p.documentos;
-  if (p.biblioteca) DB.biblioteca = p.biblioteca;
-  if (p.config) DB.config = {...DB.config, ...p.config};
   if (p.colaboradores && p.colaboradores.length) {
     DB.colaboradores = p.colaboradores.map(salvo => {
       if (!salvo.senha) {
@@ -1238,6 +1232,17 @@ function applyData(p) {
       if (atualizado) DB.currentUser = atualizado;
     }
   }
+
+  // IDs válidos após carregar colaboradores
+  const idsValidos = new Set(DB.colaboradores.map(c => Number(c.id)));
+
+  // Remove registros órfãos (referenciando colaboradores que não existem mais)
+  if (p.avaliacoes) DB.avaliacoes = p.avaliacoes.filter(a => idsValidos.has(Number(a.colaboradorId)));
+  if (p.feedbacks)  DB.feedbacks  = p.feedbacks.filter(f  => idsValidos.has(Number(f.colaboradorId)));
+  if (p.pdis)       DB.pdis       = p.pdis.filter(pd       => idsValidos.has(Number(pd.colaboradorId)));
+  if (p.documentos) DB.documentos = p.documentos;
+  if (p.biblioteca) DB.biblioteca = p.biblioteca;
+  if (p.config)     DB.config     = {...DB.config, ...p.config};
 }
 
 let _firestoreListenerAtivo = false;
