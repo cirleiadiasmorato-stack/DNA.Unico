@@ -1233,13 +1233,9 @@ function applyData(p) {
     }
   }
 
-  // IDs válidos após carregar colaboradores
-  const idsValidos = new Set(DB.colaboradores.map(c => Number(c.id)));
-
-  // Remove registros órfãos (referenciando colaboradores que não existem mais)
-  if (p.avaliacoes) DB.avaliacoes = p.avaliacoes.filter(a => idsValidos.has(Number(a.colaboradorId)));
-  if (p.feedbacks)  DB.feedbacks  = p.feedbacks.filter(f  => idsValidos.has(Number(f.colaboradorId)));
-  if (p.pdis)       DB.pdis       = p.pdis.filter(pd       => idsValidos.has(Number(pd.colaboradorId)));
+  if (p.avaliacoes) DB.avaliacoes = p.avaliacoes;
+  if (p.feedbacks)  DB.feedbacks  = p.feedbacks;
+  if (p.pdis)       DB.pdis       = p.pdis;
   if (p.documentos) DB.documentos = p.documentos;
   if (p.biblioteca) DB.biblioteca = p.biblioteca;
   if (p.config)     DB.config     = {...DB.config, ...p.config};
@@ -1786,19 +1782,42 @@ function initForms() {
   populateCicloSelects();
 }
 
+function reatribuirAvaliacao(id) {
+  const av = DB.avaliacoes.find(a => a.id === id);
+  if (!av) return;
+  const cols = DB.colaboradores.filter(c => c.perfil !== 'admin');
+  const opcoes = cols.map(c => `<option value="${c.id}">${c.nome} – ${c.area}</option>`).join('');
+  const novoId = prompt(`Reatribuir avaliação (ciclo: ${av.ciclo})\nEscolha o colaborador pelo número da lista:\n${cols.map((c,i)=>`${i+1}. ${c.nome}`).join('\n')}\n\nDigite o número:`);
+  const idx = parseInt(novoId) - 1;
+  if (isNaN(idx) || idx < 0 || idx >= cols.length) return alert('Número inválido.');
+  av.colaboradorId = cols[idx].id;
+  salvarCampoDireto('avaliacoes', DB.avaliacoes);
+  renderAvaliacoes();
+  alert(`Avaliação reatribuída para ${cols[idx].nome}!`);
+}
+
 function renderAvaliacoes() {
   const tbody = document.getElementById('tbody-avaliacoes');
   if (!tbody) return;
-  const colIds = getColaboradoresVisiveis().map(c=>c.id);
-  const avaliacoesFiltradas = DB.avaliacoes.filter(a=>colIds.includes(a.colaboradorId));
+  const u = DB.currentUser;
+  const colIds = getColaboradoresVisiveis().map(c => Number(c.id));
+
+  // Admin vê todas; gestor/colaborador filtram pelo que lhes pertence
+  const avaliacoesFiltradas = u.perfil === 'admin'
+    ? DB.avaliacoes
+    : DB.avaliacoes.filter(a => colIds.includes(Number(a.colaboradorId)));
+
   tbody.innerHTML = avaliacoesFiltradas.map(av=>{
     const c = getColaborador(av.colaboradorId);
     const nc = calcNotaPilar(av.cultura);
     const np = calcNotaPilar(av.performance);
     const nb = calcNotaPilar(av.comportamento);
     const ng = (nc+np+nb)/3;
-    return `<tr>
-      <td><div class="flex-gap"><div class="mini-avatar">${c?c.nome.charAt(0):'?'}</div>${c?c.nome:'—'}</div></td>
+    const semColaborador = !c;
+    return `<tr${semColaborador ? ' style="background:var(--warning-50,#fffbeb)"' : ''}>
+      <td><div class="flex-gap"><div class="mini-avatar">${c?c.nome.charAt(0):'?'}</div>
+        ${c ? c.nome : `<span style="color:var(--warning-600,#d97706);font-size:12px">⚠️ Colaborador não encontrado${_podExcluir()?` <button class="btn btn-outline btn-sm" onclick="reatribuirAvaliacao(${av.id})">Reatribuir</button>`:''}` }
+      </div></td>
       <td><span class="badge badge-purple">${av.ciclo}</span></td>
       <td>${notaBadge(nc)}</td>
       <td>${notaBadge(np)}</td>
