@@ -1227,11 +1227,16 @@ function applyData(p) {
   if (p.colaboradores && p.colaboradores.length) {
     DB.colaboradores = p.colaboradores.map(salvo => {
       if (!salvo.senha) {
-        const def = defaults.find(c => c.id === salvo.id);
+        const def = defaults.find(c => Number(c.id) === Number(salvo.id));
         if (def) salvo.senha = def.senha;
       }
       return salvo;
     });
+    // Atualiza currentUser para apontar para o objeto atualizado do Firestore
+    if (DB.currentUser) {
+      const atualizado = DB.colaboradores.find(c => Number(c.id) === Number(DB.currentUser.id));
+      if (atualizado) DB.currentUser = atualizado;
+    }
   }
 }
 
