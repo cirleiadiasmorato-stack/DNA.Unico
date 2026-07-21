@@ -1469,7 +1469,7 @@ function navigateTo(pageId) {
   const navBtn = document.getElementById('nav-' + pageId);
   if (navBtn) navBtn.classList.add('active');
   // Páginas que precisam de dados sempre frescos do Firebase
-  const paginasSync = ['colaboradores','dashboard','ranking','kpis'];
+  const paginasSync = ['colaboradores','dashboard','ranking','kpis','minha-evolucao','feedback','pdi','avaliacoes'];
   if (paginasSync.includes(pageId)) {
     FIRESTORE_DOC.get().then(snap => {
       if (snap.exists) { applyData(snap.data()); localStorage.setItem(STORE_KEY, JSON.stringify(snap.data())); }
@@ -1946,7 +1946,7 @@ function renderFeedbacks() {
   const u = DB.currentUser;
   const colIds = getColaboradoresVisiveis().map(c=>c.id);
   const fbs = u.perfil === 'colaborador'
-    ? DB.feedbacks.filter(f=>f.colaboradorId===u.id)
+    ? DB.feedbacks.filter(f=>Number(f.colaboradorId)===Number(u.id))
     : DB.feedbacks.filter(f=>colIds.includes(f.colaboradorId));
   document.getElementById('fb-total').textContent = fbs.length;
   document.getElementById('fb-pendentes').textContent = fbs.filter(f=>f.status==='pendente').length;
@@ -1987,7 +1987,7 @@ function renderFeedbacks() {
       <div class="mt-8" style="border-top:1px solid var(--gray-100);padding-top:10px;display:flex;align-items:center;gap:12px;">
         ${f.aceite?.aceito
           ? `<span class="badge badge-green">✓ Aceito por ${f.aceite.nome} em ${f.aceite.data}</span>`
-          : u.perfil==='colaborador' && f.colaboradorId===u.id
+          : u.perfil==='colaborador' && Number(f.colaboradorId)===Number(u.id)
             ? `<button class="btn btn-primary-sm" onclick="aceitarFeedback(${f.id})">✍ Aceitar Feedback</button><span class="text-muted" style="font-size:12px">Aguardando aceite do colaborador</span>`
             : `<span class="badge badge-yellow">Aguardando aceite</span>`
         }
@@ -2092,7 +2092,7 @@ function renderPDIs() {
   const u = DB.currentUser;
   const colIds = getColaboradoresVisiveis().map(c=>c.id);
   const pdisToShow = u.perfil === 'colaborador'
-    ? DB.pdis.filter(p=>p.colaboradorId===u.id)
+    ? DB.pdis.filter(p=>Number(p.colaboradorId)===Number(u.id))
     : DB.pdis.filter(p=>colIds.includes(p.colaboradorId));
 
   lista.innerHTML = pdisToShow.map(p=>{
@@ -2135,7 +2135,7 @@ function renderPDIs() {
       <div class="mt-8" style="border-top:1px solid var(--gray-100);padding-top:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         ${p.aceite?.aceito
           ? `<span class="badge badge-green">✓ Aceito por ${p.aceite.nome} em ${p.aceite.data}</span>`
-          : u.perfil==='colaborador' && p.colaboradorId===u.id
+          : u.perfil==='colaborador' && Number(p.colaboradorId)===Number(u.id)
             ? `<button class="btn btn-primary-sm" onclick="aceitarPDI(${p.id})">✍ Aceitar PDI</button><span class="text-muted" style="font-size:12px">Aguardando aceite do colaborador</span>`
             : `<span class="badge badge-yellow">Aguardando aceite</span>`
         }
@@ -2618,7 +2618,7 @@ function removeColaborador(id) {
 // ===================== MINHA EVOLUÇÃO =====================
 function renderMinhaEvolucao() {
   const myId = DB.currentUser.id;
-  const avList = DB.avaliacoes.filter(a=>a.colaboradorId===myId);
+  const avList = DB.avaliacoes.filter(a=>Number(a.colaboradorId)===Number(myId));
 
   if (avList.length) {
     const last = avList[avList.length-1];
@@ -2627,7 +2627,7 @@ function renderMinhaEvolucao() {
     document.getElementById('me-comportamento').textContent = calcNotaPilar(last.comportamento).toFixed(1);
   }
 
-  const myPDI = DB.pdis.find(p=>p.colaboradorId===myId);
+  const myPDI = DB.pdis.find(p=>Number(p.colaboradorId)===Number(myId));
   if (myPDI) {
     const prog = calcPDIProgress(myPDI);
     document.getElementById('me-pdi').textContent = prog+'%';
@@ -2651,7 +2651,7 @@ function renderMinhaEvolucao() {
     document.getElementById('me-pdi-detalhes').innerHTML = '<p class="text-muted">Nenhum PDI cadastrado para você ainda.</p>';
   }
 
-  const myFbs = DB.feedbacks.filter(f=>f.colaboradorId===myId).slice(-3);
+  const myFbs = DB.feedbacks.filter(f=>Number(f.colaboradorId)===Number(myId)).slice(-3);
   document.getElementById('me-feedbacks').innerHTML = myFbs.length
     ? myFbs.map(f=>`<div class="feedback-card">
         <div class="flex-between mb-8"><strong>${f.gestor}</strong><span class="text-muted">${f.data}</span></div>
@@ -3247,7 +3247,7 @@ function verAvaliacao(id) {
   const aceiteEl = document.getElementById('ver-avaliacao-aceite');
   if (av.aceite?.aceito) {
     aceiteEl.innerHTML = `<span class="badge badge-green">✓ Aceito por ${av.aceite.nome} em ${av.aceite.data}</span>`;
-  } else if (u.perfil==='colaborador' && av.colaboradorId===u.id) {
+  } else if (u.perfil==='colaborador' && Number(av.colaboradorId)===Number(u.id)) {
     aceiteEl.innerHTML = `<button class="btn btn-success" onclick="aceitarAvaliacaoModal(${av.id})">✍ Aceitar Avaliação</button>`;
   } else {
     aceiteEl.innerHTML = `<span class="badge badge-yellow">Aguardando aceite</span>`;
