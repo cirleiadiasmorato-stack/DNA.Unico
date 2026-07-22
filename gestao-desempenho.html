@@ -2654,6 +2654,9 @@ function removeColaborador(id) {
 // ===================== MINHA EVOLUÇÃO =====================
 function renderMinhaEvolucao() {
   const myId = DB.currentUser.id;
+  console.log('[DEBUG] renderMinhaEvolucao - myId:', myId, '| tipo:', typeof myId);
+  console.log('[DEBUG] Total avaliacoes no DB:', DB.avaliacoes.length);
+  DB.avaliacoes.forEach(a => console.log('[DEBUG] av.id:', a.id, '| colaboradorId:', a.colaboradorId, '('+typeof a.colaboradorId+') | match:', Number(a.colaboradorId)===Number(myId)));
   const avList = DB.avaliacoes.filter(a=>Number(a.colaboradorId)===Number(myId));
 
   if (avList.length) {
