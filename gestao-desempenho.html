@@ -601,6 +601,12 @@ tr:hover td { background:var(--gray-50); }
           <div id="me-feedbacks"></div>
         </div>
       </div>
+      <div class="card mb-16">
+        <div class="card-title">Avaliações Realizadas</div>
+        <div id="me-avaliacoes-lista" style="overflow-x:auto">
+          <p class="text-muted" style="padding:16px">Nenhuma avaliação registrada ainda.</p>
+        </div>
+      </div>
       <div class="card">
         <div class="card-title">Meu PDI Atual <span id="me-pdi-progress-badge" class="badge badge-blue">0%</span></div>
         <div id="me-pdi-detalhes"></div>
@@ -1403,6 +1409,7 @@ function getColaboradoresVisiveis() {
 const NAV_CONFIG = {
   admin: [
     {id:'dashboard', label:'Dashboard', icon:'home'},
+    {id:'meu-desempenho', label:'Meu Desempenho', icon:'trending-up', section:'Pessoal'},
     {id:'colaboradores', label:'Colaboradores', icon:'users', section:'Gestão'},
     {id:'avaliacoes', label:'Avaliações', icon:'star'},
     {id:'feedback', label:'Feedbacks', icon:'message'},
@@ -1475,7 +1482,7 @@ function navigateTo(pageId) {
   const navBtn = document.getElementById('nav-' + pageId);
   if (navBtn) navBtn.classList.add('active');
   // Páginas que precisam de dados sempre frescos do Firebase
-  const paginasSync = ['colaboradores','dashboard','ranking','kpis','minha-evolucao','feedback','pdi','avaliacoes'];
+  const paginasSync = ['colaboradores','dashboard','ranking','kpis','minha-evolucao','meu-desempenho','feedback','pdi','avaliacoes'];
   if (paginasSync.includes(pageId)) {
     FIRESTORE_DOC.get().then(snap => {
       if (snap.exists) { applyData(snap.data()); localStorage.setItem(STORE_KEY, JSON.stringify(snap.data())); }
@@ -2680,6 +2687,38 @@ function renderMinhaEvolucao() {
     document.getElementById('me-pdi-detalhes').innerHTML = '<p class="text-muted">Nenhum PDI cadastrado para você ainda.</p>';
   }
 
+  const listaEl = document.getElementById('me-avaliacoes-lista');
+  if (listaEl) {
+    if (!avList.length) {
+      listaEl.innerHTML = '<p class="text-muted" style="padding:16px">Nenhuma avaliação registrada ainda.</p>';
+    } else {
+      listaEl.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr style="background:var(--gray-50)">
+          <th style="padding:8px;text-align:left">Ciclo</th>
+          <th style="padding:8px">Cultura</th>
+          <th style="padding:8px">Performance</th>
+          <th style="padding:8px">Comportamento</th>
+          <th style="padding:8px">Nota Geral</th>
+          <th style="padding:8px;text-align:left">Observações</th>
+          <th style="padding:8px">Aceite</th>
+        </tr></thead>
+        <tbody>${avList.filter(a=>a.tipo!=='auto').map(av => {
+          const nc = calcNotaPilar(av.cultura), np = calcNotaPilar(av.performance), nb = calcNotaPilar(av.comportamento);
+          const ng = ((nc+np+nb)/3).toFixed(1);
+          return `<tr style="border-top:1px solid var(--gray-100)">
+            <td style="padding:8px"><span class="badge badge-purple">${av.ciclo}</span></td>
+            <td style="padding:8px;text-align:center">${nc.toFixed(1)}</td>
+            <td style="padding:8px;text-align:center">${np.toFixed(1)}</td>
+            <td style="padding:8px;text-align:center">${nb.toFixed(1)}</td>
+            <td style="padding:8px;text-align:center"><strong>${ng}</strong></td>
+            <td style="padding:8px;font-size:12px;color:var(--gray-600)">${av.obs||'—'}</td>
+            <td style="padding:8px;text-align:center">${av.aceite?.aceito ? `<span class="badge badge-green">✓ Aceito</span>` : `<button class="btn btn-primary-sm" onclick="aceitarAvaliacao(${av.id});renderMinhaEvolucao()">Aceitar</button>`}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>`;
+    }
+  }
+
   const myFbs = DB.feedbacks.filter(f=>Number(f.colaboradorId)===Number(myId)).slice(-3);
   document.getElementById('me-feedbacks').innerHTML = myFbs.length
     ? myFbs.map(f=>`<div class="feedback-card">
@@ -3117,7 +3156,7 @@ function removerBibDoc(id) {
 // ===================== MEU DESEMPENHO (GESTOR) =====================
 function renderMeuDesempenho() {
   const u = DB.currentUser;
-  const avs = DB.avaliacoes.filter(a => a.colaboradorId === u.id);
+  const avs = DB.avaliacoes.filter(a => Number(a.colaboradorId) === Number(u.id));
   const ultima = avs.length ? avs[avs.length - 1] : null;
 
   document.getElementById('gmd-total').textContent = avs.length;
