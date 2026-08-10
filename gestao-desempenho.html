@@ -2009,7 +2009,7 @@ function renderFeedbacks() {
   const colIds = getColaboradoresVisiveis().map(c=>c.id);
   const fbs = u.perfil === 'colaborador'
     ? DB.feedbacks.filter(f=>Number(f.colaboradorId)===Number(u.id))
-    : DB.feedbacks.filter(f=>colIds.includes(f.colaboradorId));
+    : DB.feedbacks.filter(f=>colIds.includes(f.colaboradorId) || Number(f.colaboradorId)===Number(u.id));
   document.getElementById('fb-total').textContent = fbs.length;
   document.getElementById('fb-pendentes').textContent = fbs.filter(f=>f.status==='pendente').length;
   document.getElementById('fb-concluidas').textContent = fbs.filter(f=>f.status==='concluido').length;
@@ -2050,8 +2050,8 @@ function renderFeedbacks() {
       <div class="mt-8" style="border-top:1px solid var(--gray-100);padding-top:10px;display:flex;align-items:center;gap:12px;">
         ${f.aceite?.aceito
           ? `<span class="badge badge-green">✓ Aceito por ${f.aceite.nome} em ${f.aceite.data}</span>`
-          : u.perfil==='colaborador' && Number(f.colaboradorId)===Number(u.id)
-            ? `<button class="btn btn-primary-sm" onclick="aceitarFeedback(${f.id})">✍ Aceitar Feedback</button><span class="text-muted" style="font-size:12px">Aguardando aceite do colaborador</span>`
+          : Number(f.colaboradorId)===Number(u.id)
+            ? `<button class="btn btn-primary-sm" onclick="aceitarFeedback(${f.id})">✍ Aceitar Feedback</button>`
             : `<span class="badge badge-yellow">Aguardando aceite</span>`
         }
       </div>
