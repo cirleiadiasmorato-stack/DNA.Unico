@@ -1803,6 +1803,32 @@ function reatribuirAvaliacao(id) {
   alert(`Avaliação reatribuída para ${cols[idx].nome}!`);
 }
 
+function reatribuirFeedback(id) {
+  const fb = DB.feedbacks.find(f => f.id === id);
+  if (!fb) return;
+  const cols = DB.colaboradores.filter(c => c.perfil !== 'admin');
+  const novoId = prompt(`Reatribuir feedback (gestor: ${fb.gestor})\nEscolha o colaborador pelo número:\n${cols.map((c,i)=>`${i+1}. ${c.nome} – ${c.area}`).join('\n')}\n\nDigite o número:`);
+  const idx = parseInt(novoId) - 1;
+  if (isNaN(idx) || idx < 0 || idx >= cols.length) return alert('Número inválido.');
+  fb.colaboradorId = cols[idx].id;
+  salvarCampoDireto('feedbacks', DB.feedbacks);
+  renderFeedbacks();
+  alert(`Feedback reatribuído para ${cols[idx].nome}!`);
+}
+
+function reatribuirPDI(id) {
+  const pdi = DB.pdis.find(p => p.id === id);
+  if (!pdi) return;
+  const cols = DB.colaboradores.filter(c => c.perfil !== 'admin');
+  const novoId = prompt(`Reatribuir PDI (objetivo: ${(pdi.objetivo||'').substring(0,40)}...)\nEscolha o colaborador pelo número:\n${cols.map((c,i)=>`${i+1}. ${c.nome} – ${c.area}`).join('\n')}\n\nDigite o número:`);
+  const idx = parseInt(novoId) - 1;
+  if (isNaN(idx) || idx < 0 || idx >= cols.length) return alert('Número inválido.');
+  pdi.colaboradorId = cols[idx].id;
+  salvarCampoDireto('pdis', DB.pdis);
+  renderPDIs();
+  alert(`PDI reatribuído para ${cols[idx].nome}!`);
+}
+
 function renderAvaliacoes() {
   const tbody = document.getElementById('tbody-avaliacoes');
   if (!tbody) return;
@@ -1990,12 +2016,13 @@ function renderFeedbacks() {
 
   lista.innerHTML = fbs.map(f=>{
     const c = getColaborador(f.colaboradorId);
-    return `<div class="feedback-card">
+    const semColaborador = !c;
+    return `<div class="feedback-card"${semColaborador?' style="background:var(--warning-50,#fffbeb)"':''}>
       <div class="feedback-card-header">
         <div class="feedback-card-meta">
           <div class="mini-avatar">${c?c.nome.charAt(0):'?'}</div>
           <div>
-            <strong style="font-size:13px">${c?c.nome:'—'}</strong>
+            <strong style="font-size:13px">${c?c.nome:`⚠️ Colaborador não encontrado${_podExcluir()?` <button class="btn btn-outline btn-sm" onclick="reatribuirFeedback(${f.id})">Reatribuir</button>`:''}`}</strong>
             <div class="text-muted">Gestor: ${f.gestor} · ${f.data}</div>
           </div>
         </div>
@@ -2136,10 +2163,11 @@ function renderPDIs() {
     const prog = calcPDIProgress(p);
     const hoje = new Date().toISOString().split('T')[0];
     const atrasado = p.prazo < hoje && prog < 100;
-    return `<div class="card mb-16" style="border-left:4px solid ${prog===100?'var(--success)':atrasado?'var(--danger)':'var(--primary)'}">
+    const semColPDI = !c;
+    return `<div class="card mb-16" style="border-left:4px solid ${prog===100?'var(--success)':atrasado?'var(--danger)':'var(--primary)'}${semColPDI?';background:var(--warning-50,#fffbeb)':''}">
       <div class="flex-between mb-16">
         <div class="flex-gap">
-          ${c?`<div class="mini-avatar">${c.nome.charAt(0)}</div><div><strong>${c.nome}</strong><div class="text-muted">${c.area} · ${c.cargo}</div></div>`:''}
+          ${c?`<div class="mini-avatar">${c.nome.charAt(0)}</div><div><strong>${c.nome}</strong><div class="text-muted">${c.area} · ${c.cargo}</div></div>`:`<div style="color:var(--warning-600,#d97706);font-size:13px">⚠️ Colaborador não encontrado${_podExcluir()?` <button class="btn btn-outline btn-sm" onclick="reatribuirPDI(${p.id})">Reatribuir</button>`:''}</div>`}
         </div>
         <div class="flex-gap">
           <span class="badge ${atrasado?'badge-red':prog===100?'badge-green':'badge-blue'}">${atrasado?'Atrasado':prog===100?'Concluído':'Em andamento'}</span>
