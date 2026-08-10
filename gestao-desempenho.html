@@ -613,11 +613,11 @@ tr:hover td { background:var(--gray-50); }
       </div>
     </div>
 
-    <!-- MEU DESEMPENHO (GESTOR) -->
+    <!-- MEU DESEMPENHO -->
     <div class="page" id="page-meu-desempenho">
       <div class="page-header">
         <h1>Meu Desempenho</h1>
-        <p>Suas avaliações e documentos pessoais de desempenho</p>
+        <p>Suas avaliações, feedbacks e PDI</p>
       </div>
       <div class="grid-4 mb-16">
         <div class="metric-card"><div class="metric-label">Nota Cultura</div><div class="metric-value" id="gmd-cultura">—</div></div>
@@ -626,9 +626,21 @@ tr:hover td { background:var(--gray-50); }
         <div class="metric-card"><div class="metric-label">Avaliações</div><div class="metric-value" id="gmd-total">—</div></div>
       </div>
       <div class="card mb-16">
-        <div class="card-title">Histórico de Avaliações</div>
+        <div class="card-title">Minhas Avaliações</div>
         <div id="gmd-historico" style="overflow-x:auto">
           <p class="text-muted" style="padding:16px">Nenhuma avaliação registrada ainda.</p>
+        </div>
+      </div>
+      <div class="card mb-16">
+        <div class="card-title">Meus Feedbacks</div>
+        <div id="gmd-feedbacks">
+          <p class="text-muted" style="padding:16px">Nenhum feedback registrado ainda.</p>
+        </div>
+      </div>
+      <div class="card mb-16">
+        <div class="card-title">Meu PDI <span id="gmd-pdi-badge" class="badge badge-blue">0%</span></div>
+        <div id="gmd-pdi">
+          <p class="text-muted" style="padding:16px">Nenhum PDI cadastrado ainda.</p>
         </div>
       </div>
       <div class="card">
@@ -1430,10 +1442,8 @@ const NAV_CONFIG = {
     {id:'biblioteca', label:'Biblioteca', icon:'book', section:'Sistema'},
   ],
   colaborador: [
-    {id:'minha-evolucao', label:'Minha Evolução', icon:'trending-up'},
+    {id:'meu-desempenho', label:'Meu Desempenho', icon:'trending-up'},
     {id:'autoavaliacao', label:'Autoavaliação', icon:'edit', section:'Meu Desenvolvimento'},
-    {id:'feedback', label:'Meus Feedbacks', icon:'message'},
-    {id:'pdi', label:'Meu PDI', icon:'target'},
     {id:'biblioteca', label:'Biblioteca', icon:'book', section:'Empresa'},
   ],
 };
@@ -3225,6 +3235,59 @@ function renderMeuDesempenho() {
         </tr>`;
       }).join('')}</tbody>
     </table>`;
+  }
+
+  // Feedbacks
+  const myFbs = DB.feedbacks.filter(f => Number(f.colaboradorId) === Number(u.id));
+  const fbsEl = document.getElementById('gmd-feedbacks');
+  if (fbsEl) {
+    if (!myFbs.length) {
+      fbsEl.innerHTML = '<p class="text-muted" style="padding:16px">Nenhum feedback registrado ainda.</p>';
+    } else {
+      fbsEl.innerHTML = myFbs.map(f => `
+        <div class="feedback-card" style="margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div><strong>${f.gestor||'—'}</strong> <span class="text-muted" style="font-size:12px">· ${f.data||''}</span></div>
+            <span class="badge ${f.status==='concluido'?'badge-green':'badge-yellow'}">${f.status==='concluido'?'Concluído':'Pendente'}</span>
+          </div>
+          <p style="font-size:12px;color:var(--success-dark)"><strong>✅ Pontos Fortes:</strong> ${f.fortes||'—'}</p>
+          <p style="font-size:12px;color:var(--gray-600);margin-top:4px"><strong>🔧 Melhoria:</strong> ${f.melhoria||'—'}</p>
+          ${f.acoes?`<p style="font-size:12px;color:var(--gray-600);margin-top:4px"><strong>🎯 Ações:</strong> ${f.acoes}</p>`:''}
+          <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--gray-100)">
+            ${f.aceite?.aceito
+              ? `<span class="badge badge-green">✓ Aceito em ${f.aceite.data}</span>`
+              : `<button class="btn btn-primary-sm" onclick="aceitarFeedback(${f.id});renderMeuDesempenho()">✍ Aceitar Feedback</button>`}
+          </div>
+        </div>`).join('');
+    }
+  }
+
+  // PDI
+  const myPDI = DB.pdis.find(p => Number(p.colaboradorId) === Number(u.id));
+  const pdiEl = document.getElementById('gmd-pdi');
+  const pdiBadge = document.getElementById('gmd-pdi-badge');
+  if (pdiEl) {
+    if (!myPDI) {
+      pdiEl.innerHTML = '<p class="text-muted" style="padding:16px">Nenhum PDI cadastrado ainda.</p>';
+      if (pdiBadge) pdiBadge.textContent = '0%';
+    } else {
+      const prog = calcPDIProgress(myPDI);
+      if (pdiBadge) pdiBadge.textContent = prog + '%';
+      pdiEl.innerHTML = `
+        <p style="font-size:13px;color:var(--gray-600);margin-bottom:8px"><strong>Objetivo:</strong> ${myPDI.objetivo||'—'}</p>
+        <p style="font-size:12px;color:var(--gray-500);margin-bottom:12px"><strong>Indicador:</strong> ${myPDI.indicador||'—'} · Prazo: ${myPDI.prazo||'—'}</p>
+        <div class="progress-bar mb-16"><div class="progress-fill blue" style="width:${prog}%"></div></div>
+        ${myPDI.acoes.map((a,i)=>`
+          <div class="pdi-action">
+            <div class="status-dot ${a.status==='concluido'?'dot-green':a.status==='em andamento'?'dot-blue':'dot-gray'}"></div>
+            <span class="pdi-action-text">${a.texto}</span>
+            <select class="form-control" style="width:140px" onchange="updatePDIAcao(${myPDI.id},${i},this.value)">
+              <option value="nao iniciado" ${a.status==='nao iniciado'?'selected':''}>Não iniciado</option>
+              <option value="em andamento" ${a.status==='em andamento'?'selected':''}>Em andamento</option>
+              <option value="concluido" ${a.status==='concluido'?'selected':''}>Concluído</option>
+            </select>
+          </div>`).join('')}`;
+    }
   }
 
   const docs = (DB.documentos || []).filter(d => d.userId === u.id);
