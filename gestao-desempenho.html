@@ -1267,7 +1267,7 @@ function ativarListenerTempoReal() {
   FIRESTORE_DOC.onSnapshot(snap => {
     if (!snap.exists) return;
     applyData(snap.data());
-    localStorage.setItem(STORE_KEY, JSON.stringify(snap.data()));
+    salvarLocalPreservandoArquivos(snap.data());
     // Não atualiza formulários se um modal estiver aberto (evita perda de dados em preenchimento)
     if (DB.currentUser && !document.querySelector('.modal-overlay.active')) {
       const paginaAtiva = document.querySelector('.nav-item.active');
@@ -1342,6 +1342,28 @@ async function saveDB() {
   });
 
   return FIRESTORE_DOC.set(dataFirestore).catch(e => console.warn('Erro ao salvar no Firebase:', e));
+}
+
+function salvarLocalPreservandoArquivos(dadosFirestore) {
+  try {
+    const local = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
+    const merged = {...dadosFirestore};
+    if (local.documentos) {
+      merged.documentos = (dadosFirestore.documentos||[]).map(d => {
+        const loc = (local.documentos||[]).find(l=>l.id===d.id);
+        return loc?.dados ? {...d, dados: loc.dados, nomeArquivo: loc.nomeArquivo} : d;
+      });
+    }
+    if (local.biblioteca) {
+      merged.biblioteca = (dadosFirestore.biblioteca||[]).map(d => {
+        const loc = (local.biblioteca||[]).find(l=>l.id===d.id);
+        return loc?.dados ? {...d, dados: loc.dados, nomeArquivo: loc.nomeArquivo} : d;
+      });
+    }
+    localStorage.setItem(STORE_KEY, JSON.stringify(merged));
+  } catch(e) {
+    localStorage.setItem(STORE_KEY, JSON.stringify(dadosFirestore));
+  }
 }
 
 // Ao aplicar dados do Firestore, preserva arquivos base64 do localStorage local
@@ -1504,7 +1526,7 @@ function navigateTo(pageId) {
   const paginasSync = ['colaboradores','dashboard','ranking','kpis','minha-evolucao','meu-desempenho','feedback','pdi','avaliacoes'];
   if (paginasSync.includes(pageId)) {
     FIRESTORE_DOC.get().then(snap => {
-      if (snap.exists) { applyData(snap.data()); localStorage.setItem(STORE_KEY, JSON.stringify(snap.data())); }
+      if (snap.exists) { applyData(snap.data()); salvarLocalPreservandoArquivos(snap.data()); }
       renderPage(pageId);
     }).catch(() => renderPage(pageId));
   } else {
@@ -1543,7 +1565,7 @@ async function sincronizarColaboradores(btn) {
     const snap = await FIRESTORE_DOC.get();
     if (snap.exists) {
       applyData(snap.data());
-      localStorage.setItem(STORE_KEY, JSON.stringify(snap.data()));
+      salvarLocalPreservandoArquivos(snap.data());
     }
   } catch(e) {
     alert('Erro ao buscar dados. Verifique sua conexão.');
