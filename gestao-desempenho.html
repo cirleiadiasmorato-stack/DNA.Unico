@@ -652,6 +652,12 @@ tr:hover td { background:var(--gray-50); }
           <p class="text-muted" style="text-align:center;padding:24px">Nenhum documento adicionado.</p>
         </div>
       </div>
+      <div class="card" id="gmd-card-ocorr">
+        <div class="card-title">📋 Observações e Ocorrências</div>
+        <div id="gmd-ocorrencias">
+          <p class="text-muted" style="padding:16px">Nenhuma observação registrada.</p>
+        </div>
+      </div>
     </div>
 
     <!-- AUTOAVALIAÇÃO -->
@@ -1130,6 +1136,46 @@ tr:hover td { background:var(--gray-50); }
 </div>
 
 <!-- Modal Colaborador -->
+<div class="modal-overlay" id="modal-ocorrencias">
+  <div class="modal" style="max-width:620px">
+    <div class="modal-header">
+      <h2 id="modal-ocorr-titulo">Ocorrências</h2>
+      <button class="modal-close" onclick="closeModal('modal-ocorrencias')">✕</button>
+    </div>
+    <input type="hidden" id="ocorr-col-id">
+    <div id="ocorr-lista" style="max-height:300px;overflow-y:auto;margin-bottom:16px"></div>
+    <div id="ocorr-form-area">
+      <div style="border-top:1px solid var(--gray-200);padding-top:16px;margin-top:4px">
+        <div style="font-weight:600;font-size:14px;margin-bottom:10px;color:var(--gray-700)">+ Nova Observação</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Tipo</label>
+            <select class="form-control" id="ocorr-tipo">
+              <option value="advertencia_verbal">⚠️ Advertência Verbal</option>
+              <option value="advertencia_escrita">📋 Advertência Escrita</option>
+              <option value="elogio">⭐ Elogio / Reconhecimento</option>
+              <option value="ocorrencia">📝 Ocorrência Geral</option>
+              <option value="acompanhamento">🔍 Acompanhamento</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Data</label>
+            <input type="date" class="form-control" id="ocorr-data">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Descrição</label>
+          <textarea class="form-control" id="ocorr-desc" rows="3" placeholder="Descreva a ocorrência, contexto e detalhes relevantes..."></textarea>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px">
+          <button class="btn btn-outline" onclick="closeModal('modal-ocorrencias')">Fechar</button>
+          <button class="btn btn-success" onclick="salvarOcorrencia()">Registrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-colaborador">
   <div class="modal">
     <div class="modal-header">
@@ -1213,6 +1259,7 @@ let DB = {
   ],
   documentos: [],
   biblioteca: [],
+  ocorrencias: [],
   pdis: [
     {id:1, colaboradorId:1, objetivo:'Desenvolver habilidades de liderança para assumir posição de coordenação', indicador:'Liderar projeto com pelo menos 3 pessoas até Q4 2024', prazo:'2024-12-31', acoes:[{texto:'Participar de curso de liderança online',status:'concluido'},{texto:'Fazer mentoria com a Carla Dias',status:'concluido'},{texto:'Liderar projeto piloto com equipe pequena',status:'em andamento'},{texto:'Apresentar resultado do projeto para diretoria',status:'nao iniciado'}], arquivos:[]},
     {id:2, colaboradorId:2, objetivo:'Melhorar comunicação com stakeholders não-técnicos', indicador:'Reduzir retrabalho por mal-entendimento de requisitos de 30% para 10%', prazo:'2024-09-30', acoes:[{texto:'Curso de comunicação executiva',status:'em andamento'},{texto:'Ler livro: "Comunicação Não-Violenta"',status:'concluido'},{texto:'Fazer apresentação mensal para a área de negócios',status:'nao iniciado'}], arquivos:[]},
@@ -1251,12 +1298,13 @@ function applyData(p) {
     }
   }
 
-  if (p.avaliacoes) DB.avaliacoes = p.avaliacoes;
-  if (p.feedbacks)  DB.feedbacks  = p.feedbacks;
-  if (p.pdis)       DB.pdis       = p.pdis;
-  if (p.documentos) DB.documentos = p.documentos;
-  if (p.biblioteca) DB.biblioteca = p.biblioteca;
-  if (p.config)     DB.config     = {...DB.config, ...p.config};
+  if (p.avaliacoes)  DB.avaliacoes  = p.avaliacoes;
+  if (p.feedbacks)   DB.feedbacks   = p.feedbacks;
+  if (p.pdis)        DB.pdis        = p.pdis;
+  if (p.ocorrencias) DB.ocorrencias = p.ocorrencias;
+  if (p.documentos)  DB.documentos  = p.documentos;
+  if (p.biblioteca)  DB.biblioteca  = p.biblioteca;
+  if (p.config)      DB.config      = {...DB.config, ...p.config};
 }
 
 let _firestoreListenerAtivo = false;
@@ -1319,6 +1367,7 @@ async function saveDB() {
     avaliacoes: DB.avaliacoes,
     feedbacks: DB.feedbacks,
     pdis: DB.pdis,
+    ocorrencias: DB.ocorrencias,
     documentos: DB.documentos,
     biblioteca: DB.biblioteca,
     config: DB.config
@@ -1842,6 +1891,84 @@ function reatribuirAvaliacao(id) {
   salvarCampoDireto('avaliacoes', DB.avaliacoes);
   renderAvaliacoes();
   alert(`Avaliação reatribuída para ${cols[idx].nome}!`);
+}
+
+const OCORR_TIPOS = {
+  advertencia_verbal:  '⚠️ Advertência Verbal',
+  advertencia_escrita: '📋 Advertência Escrita',
+  elogio:              '⭐ Elogio / Reconhecimento',
+  ocorrencia:          '📝 Ocorrência Geral',
+  acompanhamento:      '🔍 Acompanhamento',
+};
+const OCORR_CORES = {
+  advertencia_verbal:  '#f59e0b',
+  advertencia_escrita: '#ef4444',
+  elogio:              '#10b981',
+  ocorrencia:          '#6366f1',
+  acompanhamento:      '#3b82f6',
+};
+
+function abrirOcorrencias(colId) {
+  const c = getColaborador(colId);
+  if (!c) return;
+  document.getElementById('ocorr-col-id').value = colId;
+  document.getElementById('modal-ocorr-titulo').textContent = `Observações — ${c.nome}`;
+  document.getElementById('ocorr-data').value = new Date().toISOString().slice(0,10);
+  // Mostra form apenas para admin/gestor
+  const u = DB.currentUser;
+  document.getElementById('ocorr-form-area').style.display = (u.perfil==='colaborador') ? 'none' : '';
+  renderOcorrLista(colId);
+  openModal('modal-ocorrencias');
+}
+
+function renderOcorrLista(colId) {
+  const lista = (DB.ocorrencias||[]).filter(o=>Number(o.colaboradorId)===Number(colId))
+    .sort((a,b)=>b.data.localeCompare(a.data));
+  const el = document.getElementById('ocorr-lista');
+  if (!lista.length) {
+    el.innerHTML = '<p class="text-muted" style="padding:12px 0">Nenhuma observação registrada.</p>';
+    return;
+  }
+  el.innerHTML = lista.map(o => {
+    const cor = OCORR_CORES[o.tipo]||'#6b7280';
+    const label = OCORR_TIPOS[o.tipo]||o.tipo;
+    const u = DB.currentUser;
+    return `<div style="border-left:3px solid ${cor};padding:10px 14px;margin-bottom:10px;background:var(--gray-50);border-radius:0 8px 8px 0">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span style="font-weight:700;font-size:13px;color:${cor}">${label}</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:11px;color:var(--gray-400)">${o.data} · ${o.autor||'—'}</span>
+          ${u.perfil!=='colaborador'?`<button class="btn btn-ghost btn-sm" style="color:var(--danger);padding:2px 6px;font-size:11px" onclick="excluirOcorrencia(${o.id})">🗑</button>`:''}
+        </div>
+      </div>
+      <p style="font-size:13px;color:var(--gray-700);margin:0;line-height:1.5">${o.descricao}</p>
+    </div>`;
+  }).join('');
+}
+
+function salvarOcorrencia() {
+  const colId = Number(document.getElementById('ocorr-col-id').value);
+  const tipo  = document.getElementById('ocorr-tipo').value;
+  const data  = document.getElementById('ocorr-data').value;
+  const desc  = document.getElementById('ocorr-desc').value.trim();
+  if (!desc) return alert('Preencha a descrição da observação.');
+  if (!data) return alert('Informe a data.');
+  if (!DB.ocorrencias) DB.ocorrencias = [];
+  const id = Date.now();
+  DB.ocorrencias.push({ id, colaboradorId: colId, tipo, data, descricao: desc, autor: DB.currentUser.nome });
+  salvarCampoDireto('ocorrencias', DB.ocorrencias);
+  document.getElementById('ocorr-desc').value = '';
+  renderOcorrLista(colId);
+  renderColaboradores();
+}
+
+function excluirOcorrencia(id) {
+  if (!confirm('Excluir esta observação?')) return;
+  DB.ocorrencias = (DB.ocorrencias||[]).filter(o=>o.id!==id);
+  salvarCampoDireto('ocorrencias', DB.ocorrencias);
+  const colId = Number(document.getElementById('ocorr-col-id').value);
+  renderOcorrLista(colId);
+  renderColaboradores();
 }
 
 function reatribuirFeedback(id) {
@@ -2612,18 +2739,22 @@ function renderColaboradores() {
   const lista = u.perfil === 'gestor'
     ? DB.colaboradores.filter(c => c.gestor === u.nome)
     : DB.colaboradores;
-  tbody.innerHTML = lista.map(c=>`<tr>
-    <td><div class="flex-gap"><div class="mini-avatar">${c.nome.charAt(0)}</div>${c.nome}</div></td>
-    <td>${c.email}</td>
-    <td>${c.area}</td>
-    <td>${c.cargo}</td>
-    <td>${c.gestor||'—'}</td>
-    <td><span class="badge ${c.perfil==='admin'?'badge-red':c.perfil==='gestor'?'badge-purple':'badge-blue'}">${c.perfil}</span></td>
-    <td class="flex-gap">
-      <button class="btn btn-outline btn-sm" onclick="editarColaborador(${c.id})">✏️ Editar</button>
-      <button class="btn btn-ghost btn-sm" onclick="removeColaborador(${c.id})" style="color:var(--danger)">🗑️</button>
-    </td>
-  </tr>`).join('');
+  tbody.innerHTML = lista.map(c=>{
+    const qtdOcorr = (DB.ocorrencias||[]).filter(o=>Number(o.colaboradorId)===Number(c.id)).length;
+    return `<tr>
+      <td><div class="flex-gap"><div class="mini-avatar">${c.nome.charAt(0)}</div>${c.nome}</div></td>
+      <td>${c.email}</td>
+      <td>${c.area}</td>
+      <td>${c.cargo}</td>
+      <td>${c.gestor||'—'}</td>
+      <td><span class="badge ${c.perfil==='admin'?'badge-red':c.perfil==='gestor'?'badge-purple':'badge-blue'}">${c.perfil}</span></td>
+      <td class="flex-gap">
+        <button class="btn btn-outline btn-sm" onclick="abrirOcorrencias(${c.id})">📋${qtdOcorr>0?` <span style="background:var(--primary);color:#fff;border-radius:999px;padding:1px 6px;font-size:10px">${qtdOcorr}</span>`:''}</button>
+        <button class="btn btn-outline btn-sm" onclick="editarColaborador(${c.id})">✏️ Editar</button>
+        <button class="btn btn-ghost btn-sm" onclick="removeColaborador(${c.id})" style="color:var(--danger)">🗑️</button>
+      </td>
+    </tr>`;
+  }).join('');
 }
 
 function editarColaborador(id) {
@@ -3392,6 +3523,31 @@ function renderMeuDesempenho() {
               <option value="concluido" ${a.status==='concluido'?'selected':''}>Concluído</option>
             </select>
           </div>`).join('')}`;
+    }
+  }
+
+  // Observações (visíveis mas não editáveis pelo colaborador)
+  const myOcorr = (DB.ocorrencias||[]).filter(o=>Number(o.colaboradorId)===Number(u.id))
+    .sort((a,b)=>b.data.localeCompare(a.data));
+  const ocorrEl = document.getElementById('gmd-ocorrencias');
+  const ocorrCard = document.getElementById('gmd-card-ocorr');
+  if (ocorrEl) {
+    if (!myOcorr.length) {
+      ocorrEl.innerHTML = '<p class="text-muted" style="padding:16px">Nenhuma observação registrada.</p>';
+      if (ocorrCard) ocorrCard.style.display = u.perfil === 'colaborador' ? 'none' : '';
+    } else {
+      if (ocorrCard) ocorrCard.style.display = '';
+      ocorrEl.innerHTML = myOcorr.map(o => {
+        const cor = OCORR_CORES[o.tipo]||'#6b7280';
+        const label = OCORR_TIPOS[o.tipo]||o.tipo;
+        return `<div style="border-left:3px solid ${cor};padding:10px 14px;margin-bottom:10px;background:var(--gray-50);border-radius:0 8px 8px 0">
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+            <span style="font-weight:700;font-size:13px;color:${cor}">${label}</span>
+            <span style="font-size:11px;color:var(--gray-400)">${o.data} · ${o.autor||'—'}</span>
+          </div>
+          <p style="font-size:13px;color:var(--gray-700);margin:0;line-height:1.5">${o.descricao}</p>
+        </div>`;
+      }).join('');
     }
   }
 
