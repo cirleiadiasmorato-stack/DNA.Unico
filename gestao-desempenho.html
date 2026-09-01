@@ -1332,6 +1332,15 @@ async function saveDB() {
     documentos: (data.documentos||[]).map(d => { const {dados,...rest}=d; return rest; }),
     biblioteca: (data.biblioteca||[]).map(d => { const {dados,...rest}=d; return rest; }),
   };
+
+  // Salva arquivos de biblioteca em documentos separados no Firestore
+  (data.biblioteca||[]).forEach(d => {
+    if (d.dados) {
+      fsdb.collection('dados').doc('bib_' + d.id).set({ dados: d.dados, nomeArquivo: d.nomeArquivo||'' })
+        .catch(e => console.warn('Erro ao salvar arquivo bib:', e));
+    }
+  });
+
   return FIRESTORE_DOC.set(dataFirestore).catch(e => console.warn('Erro ao salvar no Firebase:', e));
 }
 
@@ -3117,10 +3126,40 @@ function filterBiblioteca(q) {
         <div style="font-size:11px;color:var(--gray-400);margin-top:auto;padding-top:8px">Adicionado em ${d.data}</div>
       </div>
       <div style="padding:10px 16px;border-top:1px solid var(--gray-100);display:flex;gap:8px;justify-content:flex-end">
-        ${d.dados?`<a href="${d.dados}" download="${d.nomeArquivo||d.titulo}" class="btn btn-outline btn-sm">⬇ Baixar</a>`:''}
+        ${d.dados
+          ? `<button class="btn btn-primary-sm" onclick="abrirBibDoc(${d.id})">📂 Abrir</button><a href="${d.dados}" download="${d.nomeArquivo||d.titulo}" class="btn btn-outline btn-sm">⬇ Baixar</a>`
+          : `<button class="btn btn-outline btn-sm" onclick="carregarEAbrirBibDoc(${d.id})">📂 Abrir</button>`}
         ${podeEditar?`<button class="btn btn-ghost btn-sm" onclick="editarBibDoc(${d.id})">✏️</button><button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="removerBibDoc(${d.id})">🗑️</button>`:''}
       </div>
     </div>`).join('');
+}
+
+function abrirBibDoc(id) {
+  const d = (DB.biblioteca||[]).find(x=>x.id===id);
+  if (!d || !d.dados) return;
+  const w = window.open();
+  w.document.write(`<iframe src="${d.dados}" style="width:100%;height:100vh;border:none"></iframe>`);
+}
+
+function carregarEAbrirBibDoc(id) {
+  const btn = event.target;
+  btn.textContent = '⏳ Carregando...';
+  btn.disabled = true;
+  fsdb.collection('dados').doc('bib_' + id).get().then(snap => {
+    if (snap.exists && snap.data().dados) {
+      const d = (DB.biblioteca||[]).find(x=>x.id===id);
+      if (d) d.dados = snap.data().dados;
+      abrirBibDoc(id);
+    } else {
+      alert('Arquivo não encontrado. O administrador precisa reenviar o documento.');
+    }
+    btn.textContent = '📂 Abrir';
+    btn.disabled = false;
+  }).catch(() => {
+    alert('Erro ao carregar o arquivo.');
+    btn.textContent = '📂 Abrir';
+    btn.disabled = false;
+  });
 }
 
 function novoBibDoc() {
