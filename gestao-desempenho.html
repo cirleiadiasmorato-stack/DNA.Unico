@@ -1881,31 +1881,56 @@ function renderAvaliacoes() {
     ? DB.avaliacoes
     : DB.avaliacoes.filter(a => colIds.includes(Number(a.colaboradorId)));
 
-  tbody.innerHTML = avaliacoesFiltradas.map(av=>{
-    const c = getColaborador(av.colaboradorId);
-    const nc = calcNotaPilar(av.cultura);
-    const np = calcNotaPilar(av.performance);
-    const nb = calcNotaPilar(av.comportamento);
-    const ng = (nc+np+nb)/3;
-    const semColaborador = !c;
-    return `<tr${semColaborador ? ' style="background:var(--warning-50,#fffbeb)"' : ''}>
-      <td><div class="flex-gap"><div class="mini-avatar">${c?c.nome.charAt(0):'?'}</div>
-        ${c ? c.nome : `<span style="color:var(--warning-600,#d97706);font-size:12px">⚠️ Colaborador não encontrado${_podExcluir()?` <button class="btn btn-outline btn-sm" onclick="reatribuirAvaliacao(${av.id})">Reatribuir</button>`:''}` }
-      </div></td>
-      <td><span class="badge badge-purple">${av.ciclo}</span></td>
-      <td>${notaBadge(nc)}</td>
-      <td>${notaBadge(np)}</td>
-      <td>${notaBadge(nb)}</td>
-      <td><strong>${notaBadge(ng)}</strong></td>
-      <td><span class="badge badge-green">Concluída</span></td>
-      <td>${av.aceite?.aceito ? `<span class="badge badge-green" title="Aceito em ${av.aceite.data} por ${av.aceite.nome}">✓ Aceito</span>` : `<span class="badge badge-yellow">Pendente</span>`}</td>
-      <td style="display:flex;gap:6px">
-        <button class="btn btn-ghost btn-sm" onclick="verAvaliacao(${av.id})">Ver</button>
-        ${_podExcluir() ? `<button class="btn btn-ghost btn-sm" onclick="editarAvaliacao(${av.id})">✏️</button>` : ''}
-        ${_podExcluir() ? `<button class="btn btn-ghost btn-sm" style="color:var(--danger,#ef4444)" onclick="excluirAvaliacao(${av.id})">🗑</button>` : ''}
-      </td>
-    </tr>`;
-  }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--gray-400);padding:24px">Nenhuma avaliação registrada</td></tr>';
+  if (!avaliacoesFiltradas.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--gray-400);padding:24px">Nenhuma avaliação registrada</td></tr>';
+  } else {
+    // Group by ciclo, sort by ciclo desc then by collaborator name
+    const grupos = {};
+    avaliacoesFiltradas.forEach(av => {
+      const k = av.ciclo || 'Sem período';
+      if (!grupos[k]) grupos[k] = [];
+      grupos[k].push(av);
+    });
+    const ciclosOrdenados = Object.keys(grupos).sort((a, b) => b.localeCompare(a));
+    ciclosOrdenados.forEach(g => grupos[g].sort((a,b)=>{
+      const na = getColaborador(a.colaboradorId)?.nome||'';
+      const nb2 = getColaborador(b.colaboradorId)?.nome||'';
+      return na.localeCompare(nb2);
+    }));
+    tbody.innerHTML = ciclosOrdenados.map(ciclo => {
+      const header = `<tr>
+        <td colspan="9" style="background:var(--primary-50,#eef2ff);padding:8px 12px;font-weight:700;font-size:13px;color:var(--primary,#4f46e5);border-top:2px solid var(--primary-200,#c7d2fe);letter-spacing:.3px">
+          📅 ${ciclo} <span style="font-weight:400;font-size:12px;color:var(--gray-500)">(${grupos[ciclo].length} avaliação${grupos[ciclo].length!==1?'ões':''})</span>
+        </td>
+      </tr>`;
+      const rows = grupos[ciclo].map(av => {
+        const c = getColaborador(av.colaboradorId);
+        const nc = calcNotaPilar(av.cultura);
+        const np = calcNotaPilar(av.performance);
+        const nb2 = calcNotaPilar(av.comportamento);
+        const ng = (nc+np+nb2)/3;
+        const semColaborador = !c;
+        return `<tr${semColaborador ? ' style="background:var(--warning-50,#fffbeb)"' : ''}>
+          <td><div class="flex-gap"><div class="mini-avatar">${c?c.nome.charAt(0):'?'}</div>
+            ${c ? c.nome : `<span style="color:var(--warning-600,#d97706);font-size:12px">⚠️ Colaborador não encontrado${_podExcluir()?` <button class="btn btn-outline btn-sm" onclick="reatribuirAvaliacao(${av.id})">Reatribuir</button>`:''}`}
+          </div></td>
+          <td><span class="badge badge-purple">${av.ciclo}</span></td>
+          <td>${notaBadge(nc)}</td>
+          <td>${notaBadge(np)}</td>
+          <td>${notaBadge(nb2)}</td>
+          <td><strong>${notaBadge(ng)}</strong></td>
+          <td><span class="badge badge-green">Concluída</span></td>
+          <td>${av.aceite?.aceito ? `<span class="badge badge-green" title="Aceito em ${av.aceite.data} por ${av.aceite.nome}">✓ Aceito</span>` : `<span class="badge badge-yellow">Pendente</span>`}</td>
+          <td style="display:flex;gap:6px">
+            <button class="btn btn-ghost btn-sm" onclick="verAvaliacao(${av.id})">Ver</button>
+            ${_podExcluir() ? `<button class="btn btn-ghost btn-sm" onclick="editarAvaliacao(${av.id})">✏️</button>` : ''}
+            ${_podExcluir() ? `<button class="btn btn-ghost btn-sm" style="color:var(--danger,#ef4444)" onclick="excluirAvaliacao(${av.id})">🗑</button>` : ''}
+          </td>
+        </tr>`;
+      }).join('');
+      return header + rows;
+    }).join('');
+  }
   // chart usa colaboradores visíveis
   window._colsVisiveis = getColaboradoresVisiveis().filter(c=>c.perfil!=='admin');
 
@@ -3276,8 +3301,9 @@ function removerBibDoc(id) {
 // ===================== MEU DESEMPENHO (GESTOR) =====================
 function renderMeuDesempenho() {
   const u = DB.currentUser;
-  const avs = DB.avaliacoes.filter(a => Number(a.colaboradorId) === Number(u.id));
-  const ultima = avs.length ? avs[avs.length - 1] : null;
+  const avs = DB.avaliacoes.filter(a => Number(a.colaboradorId) === Number(u.id))
+    .sort((a, b) => b.ciclo.localeCompare(a.ciclo));
+  const ultima = avs.length ? avs[0] : null;
 
   document.getElementById('gmd-total').textContent = avs.length;
   if (ultima) {
