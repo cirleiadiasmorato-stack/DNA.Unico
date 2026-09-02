@@ -441,7 +441,7 @@ tr:hover td { background:var(--gray-50); }
           <h1>Feedbacks</h1>
           <p>Acompanhamento contínuo de pontos fortes e áreas de desenvolvimento</p>
         </div>
-        <button class="btn btn-primary-sm" onclick="openModal('modal-feedback')">+ Registrar Feedback</button>
+        <button class="btn btn-primary-sm" onclick="novoFeedback()">+ Registrar Feedback</button>
       </div>
       <div class="grid-3 mb-16">
         <div class="metric-card">
@@ -907,12 +907,12 @@ tr:hover td { background:var(--gray-50); }
       <textarea class="form-control" id="fb-melhoria" rows="3" placeholder="Descreva áreas de desenvolvimento..."></textarea>
     </div>
     <div class="form-group">
-      <label class="form-label">🎯 Ações Acordadas</label>
-      <textarea class="form-control" id="fb-acoes" rows="3" placeholder="Liste as ações combinadas..."></textarea>
+      <label class="form-label">🎯 Ações Acordadas <span style="font-weight:400;color:var(--gray-400);font-size:11px">(opcional)</span></label>
+      <textarea class="form-control" id="fb-acoes" rows="3" placeholder="Preencha somente quando houver ações combinadas a partir deste feedback..."></textarea>
     </div>
-    <div class="form-row">
+    <div class="form-row" id="fb-prazo-row">
       <div class="form-group">
-        <label class="form-label">Prazo de Acompanhamento</label>
+        <label class="form-label">Prazo de Acompanhamento <span style="font-weight:400;color:var(--gray-400);font-size:11px">(opcional)</span></label>
         <input type="date" class="form-control" id="fb-prazo">
       </div>
       <div class="form-group">
@@ -922,6 +922,10 @@ tr:hover td { background:var(--gray-50); }
           <option value="concluido">Concluído</option>
         </select>
       </div>
+    </div>
+    <div class="form-group" id="fb-devolutiva-area" style="display:none">
+      <label class="form-label">💬 Devolutiva do Colaborador <span style="font-weight:400;color:var(--gray-400);font-size:11px">(preenchida pelo colaborador)</span></label>
+      <textarea class="form-control" id="fb-devolutiva" rows="3" placeholder="Percepção e comentários do colaborador sobre este feedback..."></textarea>
     </div>
     <div class="form-group">
       <label class="form-label">Anexar Arquivos</label>
@@ -2228,25 +2232,31 @@ function renderFeedbacks() {
       </div>
       <div class="feedback-section">
         <div class="feedback-section-label">✅ Pontos Fortes</div>
-        <div class="feedback-section-text">${f.fortes}</div>
+        <div class="feedback-section-text">${f.fortes||'—'}</div>
       </div>
       <div class="feedback-section">
         <div class="feedback-section-label">🔧 Pontos de Melhoria</div>
-        <div class="feedback-section-text">${f.melhoria}</div>
+        <div class="feedback-section-text">${f.melhoria||'—'}</div>
       </div>
-      <div class="feedback-section">
+      ${f.acoes ? `<div class="feedback-section">
         <div class="feedback-section-label">🎯 Ações Acordadas</div>
         <div class="feedback-section-text">${f.acoes}</div>
-      </div>
-      ${f.prazo?`<div class="mt-8"><span class="text-muted">Prazo: ${f.prazo}</span></div>`:''}
+      </div>${f.prazo?`<div class="mt-8"><span class="text-muted">Prazo: ${f.prazo}</span></div>`:''}` : ''}
+      ${f.devolutiva ? `<div class="feedback-section" style="background:var(--primary-50,#eef2ff);border-radius:8px;padding:10px 12px;margin-top:8px">
+        <div class="feedback-section-label" style="color:var(--primary,#4f46e5)">💬 Devolutiva do Colaborador</div>
+        <div class="feedback-section-text">${f.devolutiva}</div>
+      </div>` : ''}
       ${f.arquivos&&f.arquivos.length?`<div class="mt-8">${f.arquivos.map(a=>`<span class="badge badge-gray">📎 ${a.name}</span>`).join(' ')}</div>`:''}
-      <div class="mt-8" style="border-top:1px solid var(--gray-100);padding-top:10px;display:flex;align-items:center;gap:12px;">
+      <div class="mt-8" style="border-top:1px solid var(--gray-100);padding-top:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         ${f.aceite?.aceito
           ? `<span class="badge badge-green">✓ Aceito por ${f.aceite.nome} em ${f.aceite.data}</span>`
           : Number(f.colaboradorId)===Number(u.id)
             ? `<button class="btn btn-primary-sm" onclick="aceitarFeedback(${f.id})">✍ Aceitar Feedback</button>`
             : `<span class="badge badge-yellow">Aguardando aceite</span>`
         }
+        ${Number(f.colaboradorId)===Number(u.id) && !f.devolutiva
+          ? `<button class="btn btn-outline btn-sm" onclick="abrirDevolutiva(${f.id})">💬 Adicionar Devolutiva</button>`
+          : ''}
       </div>
     </div>`;
   }).join('') || '<p class="text-muted" style="text-align:center;padding:32px">Nenhum feedback registrado ainda</p>';
@@ -2273,6 +2283,23 @@ function editarFeedback(id) {
   document.getElementById('fb-acoes').value = f.acoes || '';
   document.getElementById('fb-prazo').value = f.prazo || '';
   document.getElementById('fb-status').value = f.status || 'pendente';
+  const devEl = document.getElementById('fb-devolutiva');
+  const devArea = document.getElementById('fb-devolutiva-area');
+  const u = DB.currentUser;
+  if (devEl) devEl.value = f.devolutiva || '';
+  // Colaborador: mostra apenas campo devolutiva, oculta campos de gestor
+  if (devArea) devArea.style.display = '';
+  if (u.perfil === 'colaborador') {
+    ['fb-fortes','fb-melhoria','fb-acoes','fb-prazo','fb-status','fb-colaborador','fb-data'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.disabled = true;
+    });
+  } else {
+    ['fb-fortes','fb-melhoria','fb-acoes','fb-prazo','fb-status','fb-colaborador','fb-data'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.disabled = false;
+    });
+  }
   openModal('modal-feedback');
 }
 
@@ -2287,17 +2314,26 @@ function excluirFeedback(id) {
 function salvarFeedback() {
   const colId = parseInt(document.getElementById('fb-colaborador').value);
   const files = window._uploadedFiles?.['fb-files'] || [];
+  const u = DB.currentUser;
+  const devolutivaEl = document.getElementById('fb-devolutiva');
+  const devolutiva = devolutivaEl ? devolutivaEl.value.trim() : '';
   const dados = {
     colaboradorId: colId,
     gestor: DB.currentUser.nome,
     data: document.getElementById('fb-data').value,
     fortes: document.getElementById('fb-fortes').value,
     melhoria: document.getElementById('fb-melhoria').value,
-    acoes: document.getElementById('fb-acoes').value,
+    acoes: document.getElementById('fb-acoes').value.trim(),
     prazo: document.getElementById('fb-prazo').value,
     status: document.getElementById('fb-status').value,
     arquivos: files.map(f=>({name:f.name, size:f.size}))
   };
+  // Devolutiva: colaborador só altera a própria devolutiva em feedback existente
+  if (_editandoFeedbackId && u.perfil === 'colaborador') {
+    const fb = DB.feedbacks.find(f => f.id === _editandoFeedbackId);
+    if (fb) { fb.devolutiva = devolutiva; saveDB(); closeModal('modal-feedback'); renderFeedbacks(); return; }
+  }
+  if (devolutiva) dados.devolutiva = devolutiva;
   if (_editandoFeedbackId) {
     const idx = DB.feedbacks.findIndex(f => f.id === _editandoFeedbackId);
     if (idx !== -1) DB.feedbacks[idx] = {...DB.feedbacks[idx], ...dados};
@@ -2311,6 +2347,46 @@ function salvarFeedback() {
   saveDB();
   closeModal('modal-feedback');
   renderFeedbacks();
+}
+
+function novoFeedback() {
+  _editandoFeedbackId = null;
+  document.querySelector('#modal-feedback .modal-header h2').textContent = 'Registrar Feedback';
+  ['fb-fortes','fb-melhoria','fb-acoes','fb-prazo','fb-status','fb-colaborador','fb-data'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.disabled = false; if (el.tagName !== 'SELECT') el.value = ''; }
+  });
+  const devEl = document.getElementById('fb-devolutiva');
+  if (devEl) devEl.value = '';
+  const devArea = document.getElementById('fb-devolutiva-area');
+  if (devArea) devArea.style.display = 'none';
+  document.getElementById('fb-data').value = new Date().toISOString().slice(0,10);
+  openModal('modal-feedback');
+}
+
+function abrirDevolutiva(id) {
+  const f = DB.feedbacks.find(fb => fb.id === id);
+  if (!f) return;
+  _editandoFeedbackId = id;
+  document.querySelector('#modal-feedback .modal-header h2').textContent = 'Minha Devolutiva';
+  const sel = document.getElementById('fb-colaborador');
+  if (sel) sel.value = f.colaboradorId;
+  document.getElementById('fb-data').value = f.data || '';
+  document.getElementById('fb-fortes').value = f.fortes || '';
+  document.getElementById('fb-melhoria').value = f.melhoria || '';
+  document.getElementById('fb-acoes').value = f.acoes || '';
+  document.getElementById('fb-prazo').value = f.prazo || '';
+  document.getElementById('fb-status').value = f.status || 'pendente';
+  const devEl = document.getElementById('fb-devolutiva');
+  if (devEl) devEl.value = f.devolutiva || '';
+  const devArea = document.getElementById('fb-devolutiva-area');
+  if (devArea) devArea.style.display = '';
+  // Desabilita campos do gestor para o colaborador
+  ['fb-fortes','fb-melhoria','fb-acoes','fb-prazo','fb-status','fb-colaborador','fb-data'].forEach(fid => {
+    const el = document.getElementById(fid);
+    if (el) el.disabled = true;
+  });
+  openModal('modal-feedback');
 }
 
 function filterFeedbacks(q) {
