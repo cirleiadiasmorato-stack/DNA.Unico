@@ -555,13 +555,34 @@ tr:hover td { background:var(--gray-50); }
           <button class="btn btn-primary-sm" onclick="novoColaboradorModal()">+ Novo Colaborador</button>
         </div>
       </div>
-      <div class="card">
+      <!-- Abas Ativos / Desligados -->
+      <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid var(--gray-200)">
+        <button id="tab-ativos" onclick="switchTabColaboradores('ativos')" style="padding:8px 20px;font-weight:600;font-size:13px;border:none;background:none;border-bottom:2px solid var(--primary,#4f46e5);color:var(--primary,#4f46e5);cursor:pointer;margin-bottom:-2px">Ativos</button>
+        <button id="tab-desligados" onclick="switchTabColaboradores('desligados')" style="padding:8px 20px;font-weight:600;font-size:13px;border:none;background:none;border-bottom:2px solid transparent;color:var(--gray-500);cursor:pointer;margin-bottom:-2px">Desligados</button>
+      </div>
+      <!-- Tabela Ativos -->
+      <div id="painel-ativos" class="card">
         <div class="table-wrap">
           <table>
             <thead><tr>
               <th>Nome</th><th>E-mail</th><th>Área</th><th>Cargo</th><th>Gestor</th><th>Perfil</th><th>Ações</th>
             </tr></thead>
             <tbody id="tbody-colaboradores"></tbody>
+          </table>
+        </div>
+      </div>
+      <!-- Tabela Desligados -->
+      <div id="painel-desligados" class="card" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <span style="font-size:13px;color:var(--gray-500)" id="desligados-count"></span>
+          <button class="btn btn-outline btn-sm" onclick="exportarDesligadosCSV()">⬇ Exportar CSV</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Nome</th><th>Área</th><th>Cargo</th><th>Gestor</th><th>Desligamento</th><th>Motivo</th><th>Histórico</th><th>Ações</th>
+            </tr></thead>
+            <tbody id="tbody-desligados"></tbody>
           </table>
         </div>
       </div>
@@ -1140,6 +1161,46 @@ tr:hover td { background:var(--gray-50); }
 </div>
 
 <!-- Modal Colaborador -->
+<div class="modal-overlay" id="modal-desligar">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <h2>Registrar Desligamento</h2>
+      <button class="modal-close" onclick="closeModal('modal-desligar')">✕</button>
+    </div>
+    <input type="hidden" id="deslig-col-id">
+    <div style="background:var(--warning-50,#fffbeb);border:1px solid var(--warning-200,#fde68a);border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:13px;color:#92400e">
+      ⚠️ O colaborador será arquivado em <strong>Desligados</strong>. Todo o histórico (avaliações, feedbacks, PDI) será preservado.
+    </div>
+    <div id="deslig-nome-label" style="font-weight:600;font-size:15px;margin-bottom:14px"></div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Data de Desligamento</label>
+        <input type="date" class="form-control" id="deslig-data">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tipo</label>
+        <select class="form-control" id="deslig-tipo">
+          <option value="pedido_demissao">Pedido de Demissão</option>
+          <option value="demissao_sem_justa">Demissão sem Justa Causa</option>
+          <option value="demissao_justa">Demissão por Justa Causa</option>
+          <option value="acordo">Acordo</option>
+          <option value="aposentadoria">Aposentadoria</option>
+          <option value="contrato_encerrado">Contrato Encerrado</option>
+          <option value="outro">Outro</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Observações <span style="font-weight:400;color:var(--gray-400);font-size:11px">(opcional)</span></label>
+      <textarea class="form-control" id="deslig-obs" rows="3" placeholder="Contexto, motivo detalhado, informações relevantes..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('modal-desligar')">Cancelar</button>
+      <button class="btn" style="background:var(--danger,#ef4444);color:#fff" onclick="confirmarDesligamento()">Confirmar Desligamento</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-ocorrencias">
   <div class="modal" style="max-width:620px">
     <div class="modal-header">
@@ -1493,12 +1554,13 @@ function doLogout() {
 }
 
 // Retorna apenas os colaboradores que o usuário logado pode ver
-function getColaboradoresVisiveis() {
+function getColaboradoresVisiveis(incluirDesligados = false) {
   const u = DB.currentUser;
   if (!u) return [];
-  if (u.perfil === 'admin') return DB.colaboradores;
-  if (u.perfil === 'gestor') return DB.colaboradores.filter(c => c.gestor === u.nome && c.perfil !== 'admin');
-  return DB.colaboradores.filter(c => c.id === u.id);
+  const ativos = incluirDesligados ? DB.colaboradores : DB.colaboradores.filter(c => !c.desligado);
+  if (u.perfil === 'admin') return ativos;
+  if (u.perfil === 'gestor') return ativos.filter(c => c.gestor === u.nome && c.perfil !== 'admin');
+  return ativos.filter(c => c.id === u.id);
 }
 
 // ===================== NAVIGATION =====================
@@ -2815,7 +2877,8 @@ function renderColaboradores() {
   const lista = u.perfil === 'gestor'
     ? DB.colaboradores.filter(c => c.gestor === u.nome)
     : DB.colaboradores;
-  tbody.innerHTML = lista.map(c=>{
+  const ativos = lista.filter(c => !c.desligado);
+  tbody.innerHTML = ativos.map(c=>{
     const qtdOcorr = (DB.ocorrencias||[]).filter(o=>Number(o.colaboradorId)===Number(c.id)).length;
     return `<tr>
       <td><div class="flex-gap"><div class="mini-avatar">${c.nome.charAt(0)}</div>${c.nome}</div></td>
@@ -2827,10 +2890,11 @@ function renderColaboradores() {
       <td class="flex-gap">
         <button class="btn btn-outline btn-sm" onclick="abrirOcorrencias(${c.id})">📋${qtdOcorr>0?` <span style="background:var(--primary);color:#fff;border-radius:999px;padding:1px 6px;font-size:10px">${qtdOcorr}</span>`:''}</button>
         <button class="btn btn-outline btn-sm" onclick="editarColaborador(${c.id})">✏️ Editar</button>
-        <button class="btn btn-ghost btn-sm" onclick="removeColaborador(${c.id})" style="color:var(--danger)">🗑️</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="abrirModalDesligar(${c.id})">⬁ Desligar</button>
       </td>
     </tr>`;
-  }).join('');
+  }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--gray-400);padding:20px">Nenhum colaborador ativo.</td></tr>';
+  renderDesligados();
 }
 
 function editarColaborador(id) {
@@ -2946,10 +3010,154 @@ function salvarConfiguracoes() {
 
 function removeColaborador(id) {
   if (!_podExcluir()) return alert('Sem permissão para excluir.');
-  if (!confirm('Remover este colaborador?')) return;
+  if (!confirm('Excluir permanentemente? Use "Desligar" para arquivar com histórico.')) return;
   DB.colaboradores = DB.colaboradores.filter(c=>c.id!==id);
   salvarCampoDireto('colaboradores', DB.colaboradores);
   renderColaboradores();
+}
+
+const DESLIG_TIPOS = {
+  pedido_demissao: 'Pedido de Demissão',
+  demissao_sem_justa: 'Demissão s/ Justa Causa',
+  demissao_justa: 'Demissão c/ Justa Causa',
+  acordo: 'Acordo',
+  aposentadoria: 'Aposentadoria',
+  contrato_encerrado: 'Contrato Encerrado',
+  outro: 'Outro',
+};
+
+function switchTabColaboradores(aba) {
+  document.getElementById('painel-ativos').style.display = aba === 'ativos' ? '' : 'none';
+  document.getElementById('painel-desligados').style.display = aba === 'desligados' ? '' : 'none';
+  document.getElementById('tab-ativos').style.borderBottomColor = aba === 'ativos' ? 'var(--primary,#4f46e5)' : 'transparent';
+  document.getElementById('tab-ativos').style.color = aba === 'ativos' ? 'var(--primary,#4f46e5)' : 'var(--gray-500)';
+  document.getElementById('tab-desligados').style.borderBottomColor = aba === 'desligados' ? 'var(--danger,#ef4444)' : 'transparent';
+  document.getElementById('tab-desligados').style.color = aba === 'desligados' ? 'var(--danger,#ef4444)' : 'var(--gray-500)';
+}
+
+function abrirModalDesligar(id) {
+  if (!_podExcluir()) return alert('Sem permissão.');
+  const c = DB.colaboradores.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('deslig-col-id').value = id;
+  document.getElementById('deslig-nome-label').textContent = `👤 ${c.nome} — ${c.cargo} · ${c.area}`;
+  document.getElementById('deslig-data').value = new Date().toISOString().slice(0,10);
+  document.getElementById('deslig-obs').value = '';
+  openModal('modal-desligar');
+}
+
+function confirmarDesligamento() {
+  const id = Number(document.getElementById('deslig-col-id').value);
+  const data = document.getElementById('deslig-data').value;
+  const tipo = document.getElementById('deslig-tipo').value;
+  const obs  = document.getElementById('deslig-obs').value.trim();
+  if (!data) return alert('Informe a data de desligamento.');
+  const c = DB.colaboradores.find(x => x.id === id);
+  if (!c) return;
+  c.desligado = true;
+  c.dataDesligamento = data;
+  c.tipoDesligamento = tipo;
+  c.obsDesligamento = obs;
+  salvarCampoDireto('colaboradores', DB.colaboradores);
+  closeModal('modal-desligar');
+  renderColaboradores();
+  switchTabColaboradores('desligados');
+  alert(`${c.nome} foi arquivado na lista de desligados.`);
+}
+
+function renderDesligados() {
+  const tbody = document.getElementById('tbody-desligados');
+  if (!tbody) return;
+  const desligados = DB.colaboradores.filter(c => c.desligado)
+    .sort((a,b) => (b.dataDesligamento||'').localeCompare(a.dataDesligamento||''));
+  const countEl = document.getElementById('desligados-count');
+  if (countEl) countEl.textContent = `${desligados.length} profissional${desligados.length!==1?'is':''} desligado${desligados.length!==1?'s':''}`;
+  tbody.innerHTML = desligados.map(c => {
+    const avs = DB.avaliacoes.filter(a=>Number(a.colaboradorId)===Number(c.id)).length;
+    const fbs = DB.feedbacks.filter(f=>Number(f.colaboradorId)===Number(c.id)).length;
+    const pdi = DB.pdis.find(p=>Number(p.colaboradorId)===Number(c.id));
+    return `<tr>
+      <td><div class="flex-gap"><div class="mini-avatar" style="background:var(--gray-300);color:var(--gray-600)">${c.nome.charAt(0)}</div><span style="color:var(--gray-600)">${c.nome}</span></div></td>
+      <td style="color:var(--gray-500)">${c.area}</td>
+      <td style="color:var(--gray-500)">${c.cargo}</td>
+      <td style="color:var(--gray-500)">${c.gestor||'—'}</td>
+      <td><span class="badge badge-red">${c.dataDesligamento||'—'}</span></td>
+      <td style="font-size:12px;color:var(--gray-600)">${DESLIG_TIPOS[c.tipoDesligamento]||'—'}${c.obsDesligamento?`<br><span style="color:var(--gray-400)">${c.obsDesligamento}</span>`:''}</td>
+      <td style="font-size:12px">
+        <span title="Avaliações" style="margin-right:6px">📊 ${avs}</span>
+        <span title="Feedbacks" style="margin-right:6px">💬 ${fbs}</span>
+        <span title="PDI">${pdi?'🎯 Sim':'—'}</span>
+      </td>
+      <td class="flex-gap">
+        <button class="btn btn-outline btn-sm" onclick="exportarHistoricoDesligado(${c.id})">⬇ Exportar</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--primary,#4f46e5)" onclick="reativarColaborador(${c.id})">↩ Reativar</button>
+      </td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--gray-400);padding:24px">Nenhum desligamento registrado.</td></tr>';
+}
+
+function reativarColaborador(id) {
+  if (!confirm('Reativar este colaborador?')) return;
+  const c = DB.colaboradores.find(x=>x.id===id);
+  if (!c) return;
+  delete c.desligado; delete c.dataDesligamento; delete c.tipoDesligamento; delete c.obsDesligamento;
+  salvarCampoDireto('colaboradores', DB.colaboradores);
+  renderColaboradores();
+  switchTabColaboradores('ativos');
+}
+
+function exportarHistoricoDesligado(id) {
+  const c = DB.colaboradores.find(x=>x.id===id);
+  if (!c) return;
+  const avs = DB.avaliacoes.filter(a=>Number(a.colaboradorId)===Number(c.id));
+  const fbs = DB.feedbacks.filter(f=>Number(f.colaboradorId)===Number(c.id));
+  const pdi = DB.pdis.find(p=>Number(p.colaboradorId)===Number(c.id));
+  const ocorr = (DB.ocorrencias||[]).filter(o=>Number(o.colaboradorId)===Number(c.id));
+  let csv = `HISTÓRICO DE DESLIGAMENTO — ${c.nome}\n`;
+  csv += `Área: ${c.area} | Cargo: ${c.cargo} | Gestor: ${c.gestor||'—'}\n`;
+  csv += `Data Desligamento: ${c.dataDesligamento||'—'} | Tipo: ${DESLIG_TIPOS[c.tipoDesligamento]||'—'}\n`;
+  if (c.obsDesligamento) csv += `Observações: ${c.obsDesligamento}\n`;
+  csv += `\n--- AVALIAÇÕES (${avs.length}) ---\n`;
+  csv += `Ciclo,Cultura,Performance,Comportamento,Geral\n`;
+  avs.forEach(a => {
+    const nc=calcNotaPilar(a.cultura).toFixed(1), np=calcNotaPilar(a.performance).toFixed(1), nb=calcNotaPilar(a.comportamento).toFixed(1);
+    const ng=(((+nc)+(+np)+(+nb))/3).toFixed(1);
+    csv += `${a.ciclo},${nc},${np},${nb},${ng}\n`;
+  });
+  csv += `\n--- FEEDBACKS (${fbs.length}) ---\n`;
+  csv += `Data,Gestor,Pontos Fortes,Melhoria,Ações,Status\n`;
+  fbs.forEach(f => csv += `${f.data},"${f.gestor}","${(f.fortes||'').replace(/"/g,'""')}","${(f.melhoria||'').replace(/"/g,'""')}","${(f.acoes||'').replace(/"/g,'""')}",${f.status}\n`);
+  if (pdi) {
+    csv += `\n--- PDI ---\n`;
+    csv += `Objetivo: ${pdi.objetivo||'—'}\nIndicador: ${pdi.indicador||'—'}\nPrazo: ${pdi.prazo||'—'}\n`;
+    (pdi.acoes||[]).forEach(a => csv += `[${a.status}] ${a.texto}\n`);
+  }
+  if (ocorr.length) {
+    csv += `\n--- OBSERVAÇÕES (${ocorr.length}) ---\n`;
+    csv += `Data,Tipo,Autor,Descrição\n`;
+    ocorr.forEach(o => csv += `${o.data},"${OCORR_TIPOS[o.tipo]||o.tipo}","${o.autor||''}","${(o.descricao||'').replace(/"/g,'""')}"\n`);
+  }
+  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `historico_${c.nome.replace(/\s+/g,'_')}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+}
+
+function exportarDesligadosCSV() {
+  const desligados = DB.colaboradores.filter(c=>c.desligado);
+  let csv = `Nome,Área,Cargo,Gestor,Data Desligamento,Tipo,Avaliações,Feedbacks,PDI,Observação\n`;
+  desligados.forEach(c => {
+    const avs = DB.avaliacoes.filter(a=>Number(a.colaboradorId)===Number(c.id)).length;
+    const fbs = DB.feedbacks.filter(f=>Number(f.colaboradorId)===Number(c.id)).length;
+    const pdi = DB.pdis.find(p=>Number(p.colaboradorId)===Number(c.id)) ? 'Sim' : 'Não';
+    csv += `"${c.nome}","${c.area}","${c.cargo}","${c.gestor||''}","${c.dataDesligamento||''}","${DESLIG_TIPOS[c.tipoDesligamento]||''}",${avs},${fbs},${pdi},"${(c.obsDesligamento||'').replace(/"/g,'""')}"\n`;
+  });
+  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `desligados_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click(); URL.revokeObjectURL(url);
 }
 
 // ===================== MINHA EVOLUÇÃO =====================
