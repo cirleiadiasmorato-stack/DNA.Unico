@@ -406,6 +406,7 @@ tr:hover td { background:var(--gray-50); }
       <div class="tabs">
         <button class="tab active" onclick="switchTab('avaliacoes','lista')">Lista de Avaliações</button>
         <button class="tab" onclick="switchTab('avaliacoes','comparativo')">Comparativo de Ciclos</button>
+        <button class="tab" onclick="switchTab('avaliacoes','desligados')" id="tab-av-desligados" style="color:var(--danger,#ef4444)">Desligados</button>
       </div>
       <div class="tab-content active" id="tab-avaliacoes-lista">
         <div class="card">
@@ -430,6 +431,21 @@ tr:hover td { background:var(--gray-50); }
         <div class="card">
           <div class="card-title">Comparativo entre Ciclos</div>
           <div class="chart-container-lg"><canvas id="chart-comparativo"></canvas></div>
+        </div>
+      </div>
+      <div class="tab-content" id="tab-avaliacoes-desligados">
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 14px;background:var(--gray-50);border-radius:8px;border:1px solid var(--gray-200)">
+            <span style="font-size:13px;color:var(--gray-500)">📁 Histórico de avaliações de profissionais desligados — somente leitura.</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>Colaborador</th><th>Desligamento</th><th>Ciclo</th><th>Cultura</th><th>Performance</th><th>Comportamento</th><th>Nota Geral</th><th>Ações</th>
+              </tr></thead>
+              <tbody id="tbody-avaliacoes-desligados"></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -2068,11 +2084,16 @@ function renderAvaliacoes() {
   if (!tbody) return;
   const u = DB.currentUser;
   const colIds = getColaboradoresVisiveis().map(c => Number(c.id));
+  const desligadosIds = DB.colaboradores.filter(c=>c.desligado).map(c=>Number(c.id));
 
-  // Admin vê todas; gestor/colaborador filtram pelo que lhes pertence
-  const avaliacoesFiltradas = u.perfil === 'admin'
+  // Filtra avaliações — exclui desligados da lista principal
+  const avaliacoesFiltradas = (u.perfil === 'admin'
     ? DB.avaliacoes
-    : DB.avaliacoes.filter(a => colIds.includes(Number(a.colaboradorId)));
+    : DB.avaliacoes.filter(a => colIds.includes(Number(a.colaboradorId))))
+    .filter(a => !desligadosIds.includes(Number(a.colaboradorId)));
+
+  // Preenche aba de desligados
+  renderAvaliacoesDesligados();
 
   if (!avaliacoesFiltradas.length) {
     tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--gray-400);padding:24px">Nenhuma avaliação registrada</td></tr>';
@@ -2128,6 +2149,43 @@ function renderAvaliacoes() {
   window._colsVisiveis = getColaboradoresVisiveis().filter(c=>c.perfil!=='admin');
 
   setTimeout(drawComparativoChart, 100);
+}
+
+function renderAvaliacoesDesligados() {
+  const tbody = document.getElementById('tbody-avaliacoes-desligados');
+  if (!tbody) return;
+  const desligados = DB.colaboradores.filter(c => c.desligado);
+  if (!desligados.length) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--gray-400);padding:24px">Nenhum profissional desligado com avaliações.</td></tr>';
+    return;
+  }
+  let html = '';
+  desligados.sort((a,b)=>(b.dataDesligamento||'').localeCompare(a.dataDesligamento||'')).forEach(c => {
+    const avs = DB.avaliacoes.filter(a => Number(a.colaboradorId) === Number(c.id))
+      .sort((a,b) => b.ciclo.localeCompare(a.ciclo));
+    if (!avs.length) return;
+    html += `<tr>
+      <td colspan="8" style="background:var(--gray-100);padding:7px 12px;font-weight:700;font-size:13px;color:var(--gray-600);border-top:2px solid var(--gray-300)">
+        👤 ${c.nome} <span style="font-weight:400;font-size:11px;color:var(--gray-400)">— ${c.cargo} · ${c.area}</span>
+        <span class="badge badge-red" style="margin-left:8px;font-size:11px">Desligado ${c.dataDesligamento||''}</span>
+      </td>
+    </tr>`;
+    avs.forEach(av => {
+      const nc=calcNotaPilar(av.cultura), np=calcNotaPilar(av.performance), nb=calcNotaPilar(av.comportamento);
+      const ng=((nc+np+nb)/3);
+      html += `<tr style="opacity:.85">
+        <td><div class="flex-gap"><div class="mini-avatar" style="background:var(--gray-300);color:var(--gray-600)">${c.nome.charAt(0)}</div><span style="color:var(--gray-600)">${c.nome}</span></div></td>
+        <td><span class="badge badge-red" style="font-size:11px">${c.dataDesligamento||'—'}</span></td>
+        <td><span class="badge badge-purple">${av.ciclo}</span></td>
+        <td>${notaBadge(nc)}</td>
+        <td>${notaBadge(np)}</td>
+        <td>${notaBadge(nb)}</td>
+        <td><strong>${notaBadge(ng)}</strong></td>
+        <td><button class="btn btn-ghost btn-sm" onclick="verAvaliacao(${av.id})">Ver</button></td>
+      </tr>`;
+    });
+  });
+  tbody.innerHTML = html || '<tr><td colspan="8" style="text-align:center;color:var(--gray-400);padding:24px">Nenhuma avaliação de desligados encontrada.</td></tr>';
 }
 
 function drawComparativoChart() {
