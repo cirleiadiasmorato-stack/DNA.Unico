@@ -1099,6 +1099,19 @@ tr:hover td { background:var(--gray-50); }
 </div>
 
 <!-- Modal Documento Gestor -->
+<div class="modal-overlay" id="modal-docs-colaborador">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header">
+      <h2 id="modal-docs-col-titulo">Documentos do Colaborador</h2>
+      <button class="modal-close" onclick="closeModal('modal-docs-colaborador')">✕</button>
+    </div>
+    <div id="modal-docs-col-lista"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('modal-docs-colaborador')">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-doc-gestor">
   <div class="modal" style="max-width:460px">
     <div class="modal-header">
@@ -2946,6 +2959,7 @@ function renderColaboradores() {
       <td>${c.gestor||'—'}</td>
       <td><span class="badge ${c.perfil==='admin'?'badge-red':c.perfil==='gestor'?'badge-purple':'badge-blue'}">${c.perfil}</span></td>
       <td class="flex-gap">
+        <button class="btn btn-outline btn-sm" onclick="verDocsColaborador(${c.id})">📎${(DB.documentos||[]).filter(d=>Number(d.userId)===Number(c.id)).length>0?` <span style="background:var(--success,#10b981);color:#fff;border-radius:999px;padding:1px 6px;font-size:10px">${(DB.documentos||[]).filter(d=>Number(d.userId)===Number(c.id)).length}</span>`:''}</button>
         <button class="btn btn-outline btn-sm" onclick="abrirOcorrencias(${c.id})">📋${qtdOcorr>0?` <span style="background:var(--primary);color:#fff;border-radius:999px;padding:1px 6px;font-size:10px">${qtdOcorr}</span>`:''}</button>
         <button class="btn btn-outline btn-sm" onclick="editarColaborador(${c.id})">✏️ Editar</button>
         <button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="abrirModalDesligar(${c.id})">⬁ Desligar</button>
@@ -3200,6 +3214,37 @@ function exportarHistoricoDesligado(id) {
   const a = document.createElement('a');
   a.href = url; a.download = `historico_${c.nome.replace(/\s+/g,'_')}.csv`;
   a.click(); URL.revokeObjectURL(url);
+}
+
+function verDocsColaborador(colId) {
+  const c = getColaborador(colId);
+  if (!c) return;
+  document.getElementById('modal-docs-col-titulo').textContent = `📎 Documentos — ${c.nome}`;
+  const docs = (DB.documentos||[]).filter(d => Number(d.userId) === Number(colId))
+    .sort((a,b) => (b.data||'').localeCompare(a.data||''));
+  const el = document.getElementById('modal-docs-col-lista');
+  const tipoLabel = {certificado:'Certificado', relatorio:'Relatório', treinamento:'Treinamento', meta:'Meta', outro:'Outro'};
+  const tipoIcon = {certificado:'🏅', relatorio:'📊', treinamento:'📚', meta:'🎯', outro:'📄'};
+  if (!docs.length) {
+    el.innerHTML = '<p class="text-muted" style="text-align:center;padding:32px">Nenhum documento adicionado por este colaborador.</p>';
+  } else {
+    el.innerHTML = `<div style="display:flex;flex-direction:column;gap:10px;max-height:420px;overflow-y:auto;padding-right:4px">${docs.map(d => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border:1px solid var(--gray-200);border-radius:8px;background:var(--gray-50)">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="font-size:24px">${tipoIcon[d.tipo]||'📄'}</span>
+          <div>
+            <div style="font-weight:600;font-size:14px;color:var(--gray-800)">${d.descricao}</div>
+            <div style="font-size:12px;color:var(--gray-500);margin-top:2px">${tipoLabel[d.tipo]||d.tipo} · ${d.data||'—'} · <span style="color:var(--gray-400)">${d.nomeArquivo||'Sem arquivo anexado'}</span></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+          ${d.dados ? `<a href="${d.dados}" download="${d.nomeArquivo||d.descricao}" class="btn btn-primary-sm">⬇ Baixar</a>` : '<span style="font-size:12px;color:var(--gray-400)">Sem arquivo</span>'}
+        </div>
+      </div>`).join('')}
+    </div>
+    <div style="margin-top:12px;font-size:12px;color:var(--gray-400);text-align:right">${docs.length} documento${docs.length!==1?'s':''}</div>`;
+  }
+  openModal('modal-docs-colaborador');
 }
 
 function exportarDesligadosCSV() {
@@ -3910,7 +3955,7 @@ function renderMeuDesempenho() {
         </div>
         <div style="display:flex;gap:8px;align-items:center">
           ${d.dados ? `<a href="${d.dados}" download="${d.nomeArquivo}" class="btn btn-outline btn-sm">⬇ Baixar</a>` : ''}
-          <button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="removerDocGestor(${d.id})">🗑️</button>
+          ${Number(d.userId)===Number(u.id)||u.perfil==='admin'?`<button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="removerDocGestor(${d.id})">🗑️</button>`:''}
         </div>
       </div>`).join('')}</div>`;
   }
