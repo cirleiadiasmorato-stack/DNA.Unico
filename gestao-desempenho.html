@@ -596,7 +596,7 @@ tr:hover td { background:var(--gray-50); }
         <div class="table-wrap">
           <table>
             <thead><tr>
-              <th>Nome</th><th>Área</th><th>Cargo</th><th>Gestor</th><th>Desligamento</th><th>Motivo</th><th>Histórico</th><th>Ações</th>
+              <th>Nome</th><th>Área</th><th>Cargo</th><th>Gestor</th><th>Desligamento</th><th>Motivo</th><th>Histórico</th><th>Pesquisa</th><th>Ações</th>
             </tr></thead>
             <tbody id="tbody-desligados"></tbody>
           </table>
@@ -1225,6 +1225,88 @@ tr:hover td { background:var(--gray-50); }
 </div>
 
 <!-- Modal Colaborador -->
+<div class="modal-overlay" id="modal-pesquisa-desligamento">
+  <div class="modal" style="max-width:620px;max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="flex-shrink:0">
+      <div>
+        <h2>Pesquisa de Desligamento</h2>
+        <div id="pesq-col-nome" style="font-size:12px;color:var(--gray-400);margin-top:2px"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-pesquisa-desligamento')">✕</button>
+    </div>
+    <input type="hidden" id="pesq-col-id">
+    <div style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:14px">
+      <div class="form-group">
+        <label class="form-label">1. Principal motivo do desligamento na sua visão</label>
+        <select class="form-control" id="pesq-motivo">
+          <option value="">Selecione...</option>
+          <option value="proposta_melhor">Proposta de emprego melhor</option>
+          <option value="clima_organizacional">Clima organizacional</option>
+          <option value="relacionamento_lider">Relacionamento com liderança</option>
+          <option value="falta_crescimento">Falta de perspectiva de crescimento</option>
+          <option value="remuneracao">Remuneração / benefícios</option>
+          <option value="mudanca_area">Mudança de área / carreira</option>
+          <option value="motivo_pessoal">Motivo pessoal</option>
+          <option value="outro">Outro</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">2. Como você avalia o ambiente de trabalho? <span style="color:var(--gray-400);font-weight:400">(1 = muito ruim · 5 = excelente)</span></label>
+        <div style="display:flex;gap:8px;margin-top:4px">
+          ${[1,2,3,4,5].map(n=>`<label style="display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;font-size:13px">
+            <input type="radio" name="pesq-ambiente" value="${n}" style="accent-color:var(--primary)"> ${n}</label>`).join('')}
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">3. Como você avalia sua liderança direta? <span style="color:var(--gray-400);font-weight:400">(1 = muito ruim · 5 = excelente)</span></label>
+        <div style="display:flex;gap:8px;margin-top:4px">
+          ${[1,2,3,4,5].map(n=>`<label style="display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;font-size:13px">
+            <input type="radio" name="pesq-lideranca" value="${n}" style="accent-color:var(--primary)"> ${n}</label>`).join('')}
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">4. O que a empresa poderia ter feito diferente para te manter?</label>
+        <textarea class="form-control" id="pesq-retencao" rows="3" placeholder="Sua percepção..."></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">5. Pontos positivos da empresa que você destaca</label>
+        <textarea class="form-control" id="pesq-positivos" rows="2" placeholder="O que funcionou bem..."></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">6. Sugestões de melhoria</label>
+        <textarea class="form-control" id="pesq-sugestoes" rows="2" placeholder="O que poderia ser melhorado..."></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">7. Você indicaria a empresa como lugar para trabalhar?</label>
+        <select class="form-control" id="pesq-indicaria">
+          <option value="">Selecione...</option>
+          <option value="sim">✅ Sim, com certeza</option>
+          <option value="talvez">🤔 Talvez</option>
+          <option value="nao">❌ Não</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions" style="flex-shrink:0;border-top:1px solid var(--gray-200);padding-top:12px">
+      <button class="btn btn-outline" onclick="closeModal('modal-pesquisa-desligamento')">Cancelar</button>
+      <button class="btn btn-success" onclick="salvarPesquisaDesligamento()">Salvar Pesquisa</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-pesquisa-ver">
+  <div class="modal" style="max-width:580px;max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="flex-shrink:0">
+      <div>
+        <h2>Resultado da Pesquisa</h2>
+        <div id="pesq-ver-nome" style="font-size:12px;color:var(--gray-400);margin-top:2px"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-pesquisa-ver')">✕</button>
+    </div>
+    <div id="pesq-ver-conteudo" style="overflow-y:auto;flex:1"></div>
+    <div class="modal-actions" style="flex-shrink:0"><button class="btn btn-outline" onclick="closeModal('modal-pesquisa-ver')">Fechar</button></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-desligar">
   <div class="modal" style="max-width:480px">
     <div class="modal-header">
@@ -1389,6 +1471,7 @@ let DB = {
   documentos: [],
   biblioteca: [],
   ocorrencias: [],
+  pesquisasDesligamento: [],
   pdis: [
     {id:1, colaboradorId:1, objetivo:'Desenvolver habilidades de liderança para assumir posição de coordenação', indicador:'Liderar projeto com pelo menos 3 pessoas até Q4 2024', prazo:'2024-12-31', acoes:[{texto:'Participar de curso de liderança online',status:'concluido'},{texto:'Fazer mentoria com a Carla Dias',status:'concluido'},{texto:'Liderar projeto piloto com equipe pequena',status:'em andamento'},{texto:'Apresentar resultado do projeto para diretoria',status:'nao iniciado'}], arquivos:[]},
     {id:2, colaboradorId:2, objetivo:'Melhorar comunicação com stakeholders não-técnicos', indicador:'Reduzir retrabalho por mal-entendimento de requisitos de 30% para 10%', prazo:'2024-09-30', acoes:[{texto:'Curso de comunicação executiva',status:'em andamento'},{texto:'Ler livro: "Comunicação Não-Violenta"',status:'concluido'},{texto:'Fazer apresentação mensal para a área de negócios',status:'nao iniciado'}], arquivos:[]},
@@ -1430,7 +1513,8 @@ function applyData(p) {
   if (p.avaliacoes)  DB.avaliacoes  = p.avaliacoes;
   if (p.feedbacks)   DB.feedbacks   = p.feedbacks;
   if (p.pdis)        DB.pdis        = p.pdis;
-  if (p.ocorrencias) DB.ocorrencias = p.ocorrencias;
+  if (p.ocorrencias)           DB.ocorrencias           = p.ocorrencias;
+  if (p.pesquisasDesligamento) DB.pesquisasDesligamento = p.pesquisasDesligamento;
   if (p.documentos)  DB.documentos  = p.documentos;
   if (p.biblioteca)  DB.biblioteca  = p.biblioteca;
   if (p.config)      DB.config      = {...DB.config, ...p.config};
@@ -1497,6 +1581,7 @@ async function saveDB() {
     feedbacks: DB.feedbacks,
     pdis: DB.pdis,
     ocorrencias: DB.ocorrencias,
+    pesquisasDesligamento: DB.pesquisasDesligamento,
     documentos: DB.documentos,
     biblioteca: DB.biblioteca,
     config: DB.config
@@ -1597,7 +1682,13 @@ function doLogin() {
   const lembrar = document.getElementById('lembrar-acesso').checked;
   const errEl = document.getElementById('login-error');
   const user = DB.colaboradores.find(c => c.email.toLowerCase() === email && c.senha === senha);
-  if (!user) { errEl.style.display = 'block'; return; }
+  if (!user) { errEl.style.display = 'block'; errEl.textContent = 'E-mail ou senha incorretos.'; return; }
+  if (user.desligado) {
+    errEl.style.display = 'block';
+    errEl.textContent = 'Acesso encerrado. Entre em contato com o RH.';
+    localStorage.removeItem('gp_login_salvo');
+    return;
+  }
   errEl.style.display = 'none';
   if (lembrar) {
     localStorage.setItem('gp_login_salvo', JSON.stringify({ email, senha }));
@@ -3183,6 +3274,7 @@ function renderDesligados() {
     const avs = DB.avaliacoes.filter(a=>Number(a.colaboradorId)===Number(c.id)).length;
     const fbs = DB.feedbacks.filter(f=>Number(f.colaboradorId)===Number(c.id)).length;
     const pdi = DB.pdis.find(p=>Number(p.colaboradorId)===Number(c.id));
+    const pesquisa = (DB.pesquisasDesligamento||[]).find(p=>Number(p.colaboradorId)===Number(c.id));
     return `<tr>
       <td><div class="flex-gap"><div class="mini-avatar" style="background:var(--gray-300);color:var(--gray-600)">${c.nome.charAt(0)}</div><span style="color:var(--gray-600)">${c.nome}</span></div></td>
       <td style="color:var(--gray-500)">${c.area}</td>
@@ -3195,12 +3287,17 @@ function renderDesligados() {
         <span title="Feedbacks" style="margin-right:6px">💬 ${fbs}</span>
         <span title="PDI">${pdi?'🎯 Sim':'—'}</span>
       </td>
+      <td>
+        ${pesquisa
+          ? `<button class="btn btn-outline btn-sm" onclick="verPesquisaDesligamento(${c.id})"><span class="badge badge-green" style="font-size:10px">✓ Respondida</span></button>`
+          : `<button class="btn btn-outline btn-sm" onclick="abrirPesquisaDesligamento(${c.id})">📋 Registrar</button>`}
+      </td>
       <td class="flex-gap">
         <button class="btn btn-outline btn-sm" onclick="exportarHistoricoDesligado(${c.id})">⬇ Exportar</button>
         <button class="btn btn-ghost btn-sm" style="color:var(--primary,#4f46e5)" onclick="reativarColaborador(${c.id})">↩ Reativar</button>
       </td>
     </tr>`;
-  }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--gray-400);padding:24px">Nenhum desligamento registrado.</td></tr>';
+  }).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--gray-400);padding:24px">Nenhum desligamento registrado.</td></tr>';
 }
 
 function reativarColaborador(id) {
@@ -3345,6 +3442,84 @@ function verEvolucaoColaborador(colId) {
     : '<p class="text-muted" style="padding:12px 0;font-size:13px">Nenhum PDI cadastrado.</p>';
 
   openModal('modal-evolucao-colaborador');
+}
+
+const PESQ_MOTIVOS = {
+  proposta_melhor: 'Proposta de emprego melhor',
+  clima_organizacional: 'Clima organizacional',
+  relacionamento_lider: 'Relacionamento com liderança',
+  falta_crescimento: 'Falta de perspectiva de crescimento',
+  remuneracao: 'Remuneração / benefícios',
+  mudanca_area: 'Mudança de área / carreira',
+  motivo_pessoal: 'Motivo pessoal',
+  outro: 'Outro',
+};
+const PESQ_INDICARIA = { sim:'✅ Sim, com certeza', talvez:'🤔 Talvez', nao:'❌ Não' };
+
+function abrirPesquisaDesligamento(colId) {
+  const c = getColaborador(colId);
+  if (!c) return;
+  document.getElementById('pesq-col-id').value = colId;
+  document.getElementById('pesq-col-nome').textContent = `${c.nome} · ${c.cargo} · ${c.area}`;
+  document.getElementById('pesq-motivo').value = '';
+  document.getElementById('pesq-retencao').value = '';
+  document.getElementById('pesq-positivos').value = '';
+  document.getElementById('pesq-sugestoes').value = '';
+  document.getElementById('pesq-indicaria').value = '';
+  document.querySelectorAll('input[name="pesq-ambiente"]').forEach(r => r.checked = false);
+  document.querySelectorAll('input[name="pesq-lideranca"]').forEach(r => r.checked = false);
+  openModal('modal-pesquisa-desligamento');
+}
+
+function salvarPesquisaDesligamento() {
+  const colId = Number(document.getElementById('pesq-col-id').value);
+  const ambiente  = document.querySelector('input[name="pesq-ambiente"]:checked')?.value || null;
+  const lideranca = document.querySelector('input[name="pesq-lideranca"]:checked')?.value || null;
+  const registro = {
+    id: Date.now(),
+    colaboradorId: colId,
+    dataRegistro: new Date().toISOString().slice(0,10),
+    registradoPor: DB.currentUser.nome,
+    motivo:      document.getElementById('pesq-motivo').value,
+    ambiente:    ambiente ? Number(ambiente) : null,
+    lideranca:   lideranca ? Number(lideranca) : null,
+    retencao:    document.getElementById('pesq-retencao').value.trim(),
+    positivos:   document.getElementById('pesq-positivos').value.trim(),
+    sugestoes:   document.getElementById('pesq-sugestoes').value.trim(),
+    indicaria:   document.getElementById('pesq-indicaria').value,
+  };
+  if (!registro.motivo) return alert('Selecione o motivo principal do desligamento.');
+  if (!DB.pesquisasDesligamento) DB.pesquisasDesligamento = [];
+  DB.pesquisasDesligamento = DB.pesquisasDesligamento.filter(p => Number(p.colaboradorId) !== colId);
+  DB.pesquisasDesligamento.push(registro);
+  salvarCampoDireto('pesquisasDesligamento', DB.pesquisasDesligamento);
+  closeModal('modal-pesquisa-desligamento');
+  renderDesligados();
+  alert('Pesquisa de desligamento registrada!');
+}
+
+function verPesquisaDesligamento(colId) {
+  const c = getColaborador(colId);
+  const p = (DB.pesquisasDesligamento||[]).find(x => Number(x.colaboradorId) === Number(colId));
+  if (!p || !c) return;
+  document.getElementById('pesq-ver-nome').textContent = `${c.nome} · ${c.cargo} · Registrado em ${p.dataRegistro} por ${p.registradoPor}`;
+  const estrelas = n => n ? '★'.repeat(n) + '☆'.repeat(5-n) : '—';
+  const item = (label, valor) => valor
+    ? `<div style="margin-bottom:12px;padding:10px 14px;background:var(--gray-50);border-radius:8px;border:1px solid var(--gray-200)">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gray-400);margin-bottom:4px">${label}</div>
+        <div style="font-size:13px;color:var(--gray-700)">${valor}</div>
+       </div>` : '';
+  document.getElementById('pesq-ver-conteudo').innerHTML = `
+    <div style="padding:4px 0">
+      ${item('Motivo principal', PESQ_MOTIVOS[p.motivo]||p.motivo)}
+      ${item('Ambiente de trabalho', p.ambiente ? `<span style="color:#f59e0b;font-size:18px">${estrelas(p.ambiente)}</span> (${p.ambiente}/5)` : null)}
+      ${item('Avaliação da liderança', p.lideranca ? `<span style="color:#f59e0b;font-size:18px">${estrelas(p.lideranca)}</span> (${p.lideranca}/5)` : null)}
+      ${item('O que poderia ter sido diferente', p.retencao)}
+      ${item('Pontos positivos', p.positivos)}
+      ${item('Sugestões de melhoria', p.sugestoes)}
+      ${item('Indicaria a empresa', PESQ_INDICARIA[p.indicaria]||p.indicaria)}
+    </div>`;
+  openModal('modal-pesquisa-ver');
 }
 
 function exportarDesligadosCSV() {
