@@ -2948,7 +2948,7 @@ function renderColaboradores() {
   const lista = u.perfil === 'gestor'
     ? DB.colaboradores.filter(c => c.gestor === u.nome)
     : DB.colaboradores;
-  const ativos = lista.filter(c => !c.desligado);
+  const ativos = lista.filter(c => !c.desligado).sort((a,b) => a.nome.localeCompare(b.nome, 'pt-BR'));
   tbody.innerHTML = ativos.map(c=>{
     const qtdOcorr = (DB.ocorrencias||[]).filter(o=>Number(o.colaboradorId)===Number(c.id)).length;
     return `<tr>
