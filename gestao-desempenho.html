@@ -1099,15 +1099,50 @@ tr:hover td { background:var(--gray-50); }
 </div>
 
 <!-- Modal Documento Gestor -->
-<div class="modal-overlay" id="modal-docs-colaborador">
-  <div class="modal" style="max-width:600px">
-    <div class="modal-header">
-      <h2 id="modal-docs-col-titulo">Documentos do Colaborador</h2>
-      <button class="modal-close" onclick="closeModal('modal-docs-colaborador')">✕</button>
+<div class="modal-overlay" id="modal-evolucao-colaborador">
+  <div class="modal" style="max-width:700px;max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="flex-shrink:0">
+      <div>
+        <h2 id="evolcol-titulo">Evolução do Colaborador</h2>
+        <div id="evolcol-subtitulo" style="font-size:12px;color:var(--gray-400);margin-top:2px"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-evolucao-colaborador')">✕</button>
     </div>
-    <div id="modal-docs-col-lista"></div>
-    <div class="modal-actions">
-      <button class="btn btn-outline" onclick="closeModal('modal-docs-colaborador')">Fechar</button>
+    <div style="overflow-y:auto;flex:1;padding:0 4px">
+      <!-- Métricas rápidas -->
+      <div id="evolcol-metricas" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px"></div>
+      <!-- Documentos -->
+      <div style="margin-bottom:20px">
+        <div style="font-weight:700;font-size:13px;color:var(--gray-700);margin-bottom:10px;display:flex;align-items:center;gap:8px">
+          <span>📎 Documentos e Certificados</span>
+          <span id="evolcol-docs-count" class="badge badge-blue">0</span>
+        </div>
+        <div id="evolcol-docs"></div>
+      </div>
+      <!-- Avaliações -->
+      <div style="margin-bottom:20px">
+        <div style="font-weight:700;font-size:13px;color:var(--gray-700);margin-bottom:10px;display:flex;align-items:center;gap:8px">
+          <span>📊 Avaliações</span>
+          <span id="evolcol-avs-count" class="badge badge-purple">0</span>
+        </div>
+        <div id="evolcol-avs"></div>
+      </div>
+      <!-- Feedbacks -->
+      <div style="margin-bottom:20px">
+        <div style="font-weight:700;font-size:13px;color:var(--gray-700);margin-bottom:10px;display:flex;align-items:center;gap:8px">
+          <span>💬 Feedbacks</span>
+          <span id="evolcol-fbs-count" class="badge badge-yellow">0</span>
+        </div>
+        <div id="evolcol-fbs"></div>
+      </div>
+      <!-- PDI -->
+      <div style="margin-bottom:8px">
+        <div style="font-weight:700;font-size:13px;color:var(--gray-700);margin-bottom:10px">🎯 PDI</div>
+        <div id="evolcol-pdi"></div>
+      </div>
+    </div>
+    <div class="modal-actions" style="flex-shrink:0;border-top:1px solid var(--gray-200);padding-top:12px">
+      <button class="btn btn-outline" onclick="closeModal('modal-evolucao-colaborador')">Fechar</button>
     </div>
   </div>
 </div>
@@ -2959,7 +2994,7 @@ function renderColaboradores() {
       <td>${c.gestor||'—'}</td>
       <td><span class="badge ${c.perfil==='admin'?'badge-red':c.perfil==='gestor'?'badge-purple':'badge-blue'}">${c.perfil}</span></td>
       <td class="flex-gap">
-        <button class="btn btn-outline btn-sm" onclick="verDocsColaborador(${c.id})">📎${(DB.documentos||[]).filter(d=>Number(d.userId)===Number(c.id)).length>0?` <span style="background:var(--success,#10b981);color:#fff;border-radius:999px;padding:1px 6px;font-size:10px">${(DB.documentos||[]).filter(d=>Number(d.userId)===Number(c.id)).length}</span>`:''}</button>
+        <button class="btn btn-primary-sm" onclick="verEvolucaoColaborador(${c.id})" title="Ver evolução completa">👁 Evolução</button>
         <button class="btn btn-outline btn-sm" onclick="abrirOcorrencias(${c.id})">📋${qtdOcorr>0?` <span style="background:var(--primary);color:#fff;border-radius:999px;padding:1px 6px;font-size:10px">${qtdOcorr}</span>`:''}</button>
         <button class="btn btn-outline btn-sm" onclick="editarColaborador(${c.id})">✏️ Editar</button>
         <button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="abrirModalDesligar(${c.id})">⬁ Desligar</button>
@@ -3216,35 +3251,100 @@ function exportarHistoricoDesligado(id) {
   a.click(); URL.revokeObjectURL(url);
 }
 
-function verDocsColaborador(colId) {
+function verEvolucaoColaborador(colId) {
   const c = getColaborador(colId);
   if (!c) return;
-  document.getElementById('modal-docs-col-titulo').textContent = `📎 Documentos — ${c.nome}`;
-  const docs = (DB.documentos||[]).filter(d => Number(d.userId) === Number(colId))
-    .sort((a,b) => (b.data||'').localeCompare(a.data||''));
-  const el = document.getElementById('modal-docs-col-lista');
+
+  document.getElementById('evolcol-titulo').textContent = c.nome;
+  document.getElementById('evolcol-subtitulo').textContent = `${c.cargo} · ${c.area} · Gestor: ${c.gestor||'—'}`;
+
+  const docs = (DB.documentos||[]).filter(d => Number(d.userId) === Number(colId)).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+  const avs  = DB.avaliacoes.filter(a => Number(a.colaboradorId) === Number(colId)).sort((a,b)=>b.ciclo.localeCompare(a.ciclo));
+  const fbs  = DB.feedbacks.filter(f => Number(f.colaboradorId) === Number(colId)).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+  const pdi  = DB.pdis.find(p => Number(p.colaboradorId) === Number(colId));
+  const ultima = avs.length ? avs[0] : null;
+
+  // Métricas rápidas
+  const notaGeral = ultima ? ((calcNotaPilar(ultima.cultura)+calcNotaPilar(ultima.performance)+calcNotaPilar(ultima.comportamento))/3).toFixed(1) : '—';
+  const pdiProg = pdi ? calcPDIProgress(pdi) : 0;
+  document.getElementById('evolcol-metricas').innerHTML = [
+    {label:'Última Nota', valor: notaGeral, cor:'var(--primary,#4f46e5)'},
+    {label:'Avaliações', valor: avs.length, cor:'#7c3aed'},
+    {label:'Documentos', valor: docs.length, cor:'#059669'},
+    {label:'PDI', valor: pdi ? pdiProg+'%' : '—', cor:'#d97706'},
+  ].map(m=>`<div style="background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;padding:12px;text-align:center">
+    <div style="font-size:22px;font-weight:800;color:${m.cor}">${m.valor}</div>
+    <div style="font-size:11px;color:var(--gray-500);margin-top:2px">${m.label}</div>
+  </div>`).join('');
+
+  // Documentos
   const tipoLabel = {certificado:'Certificado', relatorio:'Relatório', treinamento:'Treinamento', meta:'Meta', outro:'Outro'};
-  const tipoIcon = {certificado:'🏅', relatorio:'📊', treinamento:'📚', meta:'🎯', outro:'📄'};
-  if (!docs.length) {
-    el.innerHTML = '<p class="text-muted" style="text-align:center;padding:32px">Nenhum documento adicionado por este colaborador.</p>';
-  } else {
-    el.innerHTML = `<div style="display:flex;flex-direction:column;gap:10px;max-height:420px;overflow-y:auto;padding-right:4px">${docs.map(d => `
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border:1px solid var(--gray-200);border-radius:8px;background:var(--gray-50)">
-        <div style="display:flex;align-items:center;gap:12px">
-          <span style="font-size:24px">${tipoIcon[d.tipo]||'📄'}</span>
+  const tipoIcon  = {certificado:'🏅', relatorio:'📊', treinamento:'📚', meta:'🎯', outro:'📄'};
+  document.getElementById('evolcol-docs-count').textContent = docs.length;
+  document.getElementById('evolcol-docs').innerHTML = docs.length
+    ? docs.map(d=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid var(--gray-200);border-radius:8px;background:#fff;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:20px">${tipoIcon[d.tipo]||'📄'}</span>
           <div>
-            <div style="font-weight:600;font-size:14px;color:var(--gray-800)">${d.descricao}</div>
-            <div style="font-size:12px;color:var(--gray-500);margin-top:2px">${tipoLabel[d.tipo]||d.tipo} · ${d.data||'—'} · <span style="color:var(--gray-400)">${d.nomeArquivo||'Sem arquivo anexado'}</span></div>
+            <div style="font-weight:600;font-size:13px">${d.descricao}</div>
+            <div style="font-size:11px;color:var(--gray-500)">${tipoLabel[d.tipo]||d.tipo} · ${d.data||'—'} · ${d.nomeArquivo||'Sem arquivo'}</div>
           </div>
         </div>
-        <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
-          ${d.dados ? `<a href="${d.dados}" download="${d.nomeArquivo||d.descricao}" class="btn btn-primary-sm">⬇ Baixar</a>` : '<span style="font-size:12px;color:var(--gray-400)">Sem arquivo</span>'}
+        ${d.dados?`<a href="${d.dados}" download="${d.nomeArquivo||d.descricao}" class="btn btn-primary-sm">⬇ Baixar</a>`:'<span style="font-size:11px;color:var(--gray-400)">Sem arquivo</span>'}
+      </div>`).join('')
+    : '<p class="text-muted" style="padding:12px 0;font-size:13px">Nenhum documento anexado ainda.</p>';
+
+  // Avaliações
+  document.getElementById('evolcol-avs-count').textContent = avs.length;
+  document.getElementById('evolcol-avs').innerHTML = avs.length
+    ? `<table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr style="background:var(--gray-50)">
+          <th style="padding:7px 10px;text-align:left">Ciclo</th><th style="padding:7px;text-align:center">Cultura</th><th style="padding:7px;text-align:center">Performance</th><th style="padding:7px;text-align:center">Comportamento</th><th style="padding:7px;text-align:center">Geral</th>
+        </tr></thead>
+        <tbody>${avs.map(av=>{
+          const nc=calcNotaPilar(av.cultura),np=calcNotaPilar(av.performance),nb=calcNotaPilar(av.comportamento);
+          const ng=((nc+np+nb)/3).toFixed(1);
+          return `<tr style="border-top:1px solid var(--gray-100)">
+            <td style="padding:7px 10px"><span class="badge badge-purple">${av.ciclo}</span></td>
+            <td style="padding:7px;text-align:center">${notaBadge(nc)}</td>
+            <td style="padding:7px;text-align:center">${notaBadge(np)}</td>
+            <td style="padding:7px;text-align:center">${notaBadge(nb)}</td>
+            <td style="padding:7px;text-align:center"><strong>${notaBadge(parseFloat(ng))}</strong></td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>`
+    : '<p class="text-muted" style="padding:12px 0;font-size:13px">Nenhuma avaliação registrada.</p>';
+
+  // Feedbacks
+  document.getElementById('evolcol-fbs-count').textContent = fbs.length;
+  document.getElementById('evolcol-fbs').innerHTML = fbs.length
+    ? fbs.map(f=>`<div style="border-left:3px solid var(--primary,#4f46e5);padding:10px 12px;margin-bottom:8px;background:var(--gray-50);border-radius:0 8px 8px 0">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <span style="font-weight:600;font-size:12px">${f.gestor||'—'} · ${f.data||''}</span>
+          <span class="badge ${f.status==='concluido'?'badge-green':'badge-yellow'}" style="font-size:11px">${f.status==='concluido'?'Concluído':'Pendente'}</span>
         </div>
-      </div>`).join('')}
-    </div>
-    <div style="margin-top:12px;font-size:12px;color:var(--gray-400);text-align:right">${docs.length} documento${docs.length!==1?'s':''}</div>`;
-  }
-  openModal('modal-docs-colaborador');
+        <p style="font-size:12px;margin:2px 0"><strong>✅</strong> ${f.fortes||'—'}</p>
+        <p style="font-size:12px;margin:2px 0"><strong>🔧</strong> ${f.melhoria||'—'}</p>
+        ${f.acoes?`<p style="font-size:12px;margin:2px 0"><strong>🎯</strong> ${f.acoes}</p>`:''}
+        ${f.devolutiva?`<p style="font-size:12px;margin:4px 0;color:var(--primary,#4f46e5)"><strong>💬 Devolutiva:</strong> ${f.devolutiva}</p>`:''}
+      </div>`).join('')
+    : '<p class="text-muted" style="padding:12px 0;font-size:13px">Nenhum feedback registrado.</p>';
+
+  // PDI
+  document.getElementById('evolcol-pdi').innerHTML = pdi
+    ? `<div style="background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;padding:14px">
+        <p style="font-size:13px;margin-bottom:6px"><strong>Objetivo:</strong> ${pdi.objetivo||'—'}</p>
+        <p style="font-size:12px;color:var(--gray-500);margin-bottom:10px"><strong>Indicador:</strong> ${pdi.indicador||'—'} · Prazo: ${pdi.prazo||'—'}</p>
+        <div class="progress-bar mb-8"><div class="progress-fill blue" style="width:${pdiProg}%"></div></div>
+        <div style="font-size:12px;color:var(--gray-500);margin-bottom:8px">${pdiProg}% concluído</div>
+        ${pdi.acoes.map(a=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:12px">
+          <div class="status-dot ${a.status==='concluido'?'dot-green':a.status==='em andamento'?'dot-blue':'dot-gray'}"></div>
+          <span>${a.texto}</span>
+        </div>`).join('')}
+      </div>`
+    : '<p class="text-muted" style="padding:12px 0;font-size:13px">Nenhum PDI cadastrado.</p>';
+
+  openModal('modal-evolucao-colaborador');
 }
 
 function exportarDesligadosCSV() {
