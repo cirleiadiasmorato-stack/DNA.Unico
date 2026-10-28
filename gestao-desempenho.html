@@ -936,12 +936,27 @@ tr:hover td { background:var(--gray-50); }
       </div>
     </div>
     <div class="form-group">
+      <label class="form-label">Tipo de Feedback</label>
+      <select class="form-control" id="fb-tipo" onchange="toggleTipoFeedback()">
+        <option value="estruturado">📋 Feedback Estruturado (Pontos Fortes + Melhoria)</option>
+        <option value="pontual">⚡ Feedback Pontual</option>
+      </select>
+    </div>
+    <div id="fb-campos-estruturado">
+    <div class="form-group">
       <label class="form-label">✅ Pontos Fortes</label>
       <textarea class="form-control" id="fb-fortes" rows="3" placeholder="Descreva os pontos positivos observados..."></textarea>
     </div>
     <div class="form-group">
       <label class="form-label">🔧 Pontos de Melhoria</label>
       <textarea class="form-control" id="fb-melhoria" rows="3" placeholder="Descreva áreas de desenvolvimento..."></textarea>
+    </div>
+    </div>
+    <div id="fb-campos-pontual" style="display:none">
+    <div class="form-group">
+      <label class="form-label">⚡ Feedback Pontual</label>
+      <textarea class="form-control" id="fb-pontual" rows="5" placeholder="Registre aqui o feedback pontual..."></textarea>
+    </div>
     </div>
     <div class="form-group">
       <label class="form-label">🎯 Ações Acordadas <span style="font-weight:400;color:var(--gray-400);font-size:11px">(opcional)</span></label>
@@ -2497,6 +2512,11 @@ function renderFeedbacks() {
           ${_podExcluir()?`<button class="btn btn-ghost btn-sm" style="color:var(--danger,#ef4444)" onclick="excluirFeedback(${f.id})">🗑</button>`:''}
         </div>
       </div>
+      ${f.tipo === 'pontual' ? `
+      <div class="feedback-section" style="background:#f0f9ff;border-radius:8px;padding:10px 12px">
+        <div class="feedback-section-label" style="color:#0369a1">⚡ Feedback Pontual</div>
+        <div class="feedback-section-text">${f.pontual||'—'}</div>
+      </div>` : `
       <div class="feedback-section">
         <div class="feedback-section-label">✅ Pontos Fortes</div>
         <div class="feedback-section-text">${f.fortes||'—'}</div>
@@ -2504,7 +2524,7 @@ function renderFeedbacks() {
       <div class="feedback-section">
         <div class="feedback-section-label">🔧 Pontos de Melhoria</div>
         <div class="feedback-section-text">${f.melhoria||'—'}</div>
-      </div>
+      </div>`}
       ${f.acoes ? `<div class="feedback-section">
         <div class="feedback-section-label">🎯 Ações Acordadas</div>
         <div class="feedback-section-text">${f.acoes}</div>
@@ -2545,8 +2565,13 @@ function editarFeedback(id) {
   const sel = document.getElementById('fb-colaborador');
   if (sel) sel.value = f.colaboradorId;
   document.getElementById('fb-data').value = f.data || '';
+  const tipoEl2 = document.getElementById('fb-tipo');
+  if (tipoEl2) { tipoEl2.value = f.tipo || 'estruturado'; tipoEl2.disabled = true; }
+  toggleTipoFeedback();
   document.getElementById('fb-fortes').value = f.fortes || '';
   document.getElementById('fb-melhoria').value = f.melhoria || '';
+  const pontualEl2 = document.getElementById('fb-pontual');
+  if (pontualEl2) pontualEl2.value = f.pontual || '';
   document.getElementById('fb-acoes').value = f.acoes || '';
   document.getElementById('fb-prazo').value = f.prazo || '';
   document.getElementById('fb-status').value = f.status || 'pendente';
@@ -2584,12 +2609,15 @@ function salvarFeedback() {
   const u = DB.currentUser;
   const devolutivaEl = document.getElementById('fb-devolutiva');
   const devolutiva = devolutivaEl ? devolutivaEl.value.trim() : '';
+  const tipo = document.getElementById('fb-tipo')?.value || 'estruturado';
   const dados = {
     colaboradorId: colId,
     gestor: DB.currentUser.nome,
     data: document.getElementById('fb-data').value,
-    fortes: document.getElementById('fb-fortes').value,
-    melhoria: document.getElementById('fb-melhoria').value,
+    tipo,
+    fortes: tipo === 'estruturado' ? document.getElementById('fb-fortes').value : '',
+    melhoria: tipo === 'estruturado' ? document.getElementById('fb-melhoria').value : '',
+    pontual: tipo === 'pontual' ? document.getElementById('fb-pontual').value.trim() : '',
     acoes: document.getElementById('fb-acoes').value.trim(),
     prazo: document.getElementById('fb-prazo').value,
     status: document.getElementById('fb-status').value,
@@ -2616,13 +2644,22 @@ function salvarFeedback() {
   renderFeedbacks();
 }
 
+function toggleTipoFeedback() {
+  const tipo = document.getElementById('fb-tipo').value;
+  document.getElementById('fb-campos-estruturado').style.display = tipo === 'estruturado' ? '' : 'none';
+  document.getElementById('fb-campos-pontual').style.display = tipo === 'pontual' ? '' : 'none';
+}
+
 function novoFeedback() {
   _editandoFeedbackId = null;
   document.querySelector('#modal-feedback .modal-header h2').textContent = 'Registrar Feedback';
-  ['fb-fortes','fb-melhoria','fb-acoes','fb-prazo','fb-status','fb-colaborador','fb-data'].forEach(id => {
+  ['fb-fortes','fb-melhoria','fb-acoes','fb-prazo','fb-status','fb-colaborador','fb-data','fb-pontual'].forEach(id => {
     const el = document.getElementById(id);
     if (el) { el.disabled = false; if (el.tagName !== 'SELECT') el.value = ''; }
   });
+  const tipoEl = document.getElementById('fb-tipo');
+  if (tipoEl) { tipoEl.value = 'estruturado'; tipoEl.disabled = false; }
+  toggleTipoFeedback();
   const devEl = document.getElementById('fb-devolutiva');
   if (devEl) devEl.value = '';
   const devArea = document.getElementById('fb-devolutiva-area');
