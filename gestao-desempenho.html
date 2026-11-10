@@ -4065,6 +4065,22 @@ function carregarEAbrirBibDoc(id) {
   const btn = event.target;
   btn.textContent = '⏳ Carregando...';
   btn.disabled = true;
+
+  // Tenta primeiro no localStorage (arquivos antigos ou recém-salvos localmente)
+  try {
+    const local = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
+    const docLocal = (local.biblioteca||[]).find(x=>x.id===id);
+    if (docLocal?.dados) {
+      const d = (DB.biblioteca||[]).find(x=>x.id===id);
+      if (d) d.dados = docLocal.dados;
+      abrirBibDoc(id);
+      btn.textContent = '📂 Abrir';
+      btn.disabled = false;
+      return;
+    }
+  } catch(e) {}
+
+  // Se não encontrou local, busca no Firestore
   fsdb.collection('dados').doc('bib_' + id).get().then(snap => {
     if (snap.exists && snap.data().dados) {
       const d = (DB.biblioteca||[]).find(x=>x.id===id);
