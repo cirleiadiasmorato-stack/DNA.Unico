@@ -1734,6 +1734,23 @@ function doLogin() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   initApp();
+  migrarDocumentosParaFirestore();
+}
+
+// Envia documentos existentes no localStorage para o Firestore como doc_ID
+function migrarDocumentosParaFirestore() {
+  try {
+    const local = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
+    (local.documentos||[]).forEach(d => {
+      if (!d.dados) return;
+      fsdb.collection('dados').doc('doc_' + d.id).get().then(snap => {
+        if (!snap.exists) {
+          fsdb.collection('dados').doc('doc_' + d.id).set({ dados: d.dados, nomeArquivo: d.nomeArquivo||'' })
+            .catch(e => console.warn('Erro migração doc:', e));
+        }
+      }).catch(() => {});
+    });
+  } catch(e) {}
 }
 
 function doLogout() {
