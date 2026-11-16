@@ -644,9 +644,13 @@ tr:hover td { background:var(--gray-50); }
           <p class="text-muted" style="padding:16px">Nenhuma avaliação registrada ainda.</p>
         </div>
       </div>
-      <div class="card">
+      <div class="card mb-16">
         <div class="card-title">Meu PDI Atual <span id="me-pdi-progress-badge" class="badge badge-blue">0%</span></div>
         <div id="me-pdi-detalhes"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Meus Documentos e Certificados</div>
+        <div id="me-documentos"><p class="text-muted" style="padding:16px">Nenhum documento anexado ainda.</p></div>
       </div>
     </div>
 
@@ -2248,10 +2252,10 @@ function renderAvaliacoes() {
   const colIds = getColaboradoresVisiveis().map(c => Number(c.id));
   const desligadosIds = DB.colaboradores.filter(c=>c.desligado).map(c=>Number(c.id));
 
-  // Filtra avaliações — exclui desligados da lista principal
+  // Filtra avaliações — gestor vê colaboradores da sua equipe + a própria; exclui desligados
   const avaliacoesFiltradas = (u.perfil === 'admin'
     ? DB.avaliacoes
-    : DB.avaliacoes.filter(a => colIds.includes(Number(a.colaboradorId))))
+    : DB.avaliacoes.filter(a => colIds.includes(Number(a.colaboradorId)) || Number(a.colaboradorId)===Number(u.id)))
     .filter(a => !desligadosIds.includes(Number(a.colaboradorId)));
 
   // Preenche aba de desligados
@@ -2485,10 +2489,10 @@ function renderFeedbacks() {
   const lista = document.getElementById('lista-feedbacks');
   if (!lista) return;
   const u = DB.currentUser;
-  const colIds = getColaboradoresVisiveis().map(c=>c.id);
+  const colIds = getColaboradoresVisiveis().map(c=>Number(c.id));
   const fbs = u.perfil === 'colaborador'
     ? DB.feedbacks.filter(f=>Number(f.colaboradorId)===Number(u.id))
-    : DB.feedbacks.filter(f=>colIds.includes(f.colaboradorId) || Number(f.colaboradorId)===Number(u.id));
+    : DB.feedbacks.filter(f=>colIds.includes(Number(f.colaboradorId)) || Number(f.colaboradorId)===Number(u.id));
   document.getElementById('fb-total').textContent = fbs.length;
   document.getElementById('fb-pendentes').textContent = fbs.filter(f=>f.status==='pendente').length;
   document.getElementById('fb-concluidas').textContent = fbs.filter(f=>f.status==='concluido').length;
@@ -2726,10 +2730,10 @@ function renderPDIs() {
   if (!lista) return;
 
   const u = DB.currentUser;
-  const colIds = getColaboradoresVisiveis().map(c=>c.id);
+  const colIds = getColaboradoresVisiveis().map(c=>Number(c.id));
   const pdisToShow = u.perfil === 'colaborador'
     ? DB.pdis.filter(p=>Number(p.colaboradorId)===Number(u.id))
-    : DB.pdis.filter(p=>colIds.includes(p.colaboradorId));
+    : DB.pdis.filter(p=>colIds.includes(Number(p.colaboradorId)));
 
   lista.innerHTML = pdisToShow.map(p=>{
     const c = getColaborador(p.colaboradorId);
@@ -3675,10 +3679,32 @@ function renderMinhaEvolucao() {
   document.getElementById('me-feedbacks').innerHTML = myFbs.length
     ? myFbs.map(f=>`<div class="feedback-card">
         <div class="flex-between mb-8"><strong>${f.gestor}</strong><span class="text-muted">${f.data}</span></div>
-        <p style="font-size:12px;color:var(--success-dark)"><strong>✅ Fortes:</strong> ${f.fortes}</p>
-        <p style="font-size:12px;color:var(--gray-600);margin-top:4px"><strong>🔧 Melhoria:</strong> ${f.melhoria}</p>
+        ${f.tipo==='pontual'
+          ? `<p style="font-size:12px;color:var(--gray-700)"><strong>⚡ Pontual:</strong> ${f.pontual||'—'}</p>`
+          : `<p style="font-size:12px;color:var(--success-dark)"><strong>✅ Fortes:</strong> ${f.fortes||'—'}</p>
+             <p style="font-size:12px;color:var(--gray-600);margin-top:4px"><strong>🔧 Melhoria:</strong> ${f.melhoria||'—'}</p>`}
       </div>`).join('')
     : '<p class="text-muted">Nenhum feedback recebido ainda.</p>';
+
+  // Documentos e certificados
+  const myDocs = (DB.documentos||[]).filter(d=>Number(d.userId)===Number(myId));
+  const tipoIcon = {certificado:'🏅', relatorio:'📊', treinamento:'📚', meta:'🎯', outro:'📄'};
+  const tipoLabel = {certificado:'Certificado', relatorio:'Relatório', treinamento:'Treinamento', meta:'Meta', outro:'Outro'};
+  const meDocsEl = document.getElementById('me-documentos');
+  if (meDocsEl) {
+    meDocsEl.innerHTML = myDocs.length
+      ? myDocs.map(d=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--gray-100)">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:20px">${tipoIcon[d.tipo]||'📄'}</span>
+            <div>
+              <div style="font-weight:600;font-size:13px">${d.titulo||d.nomeArquivo||'Documento'}</div>
+              <div style="font-size:11px;color:var(--gray-400)">${tipoLabel[d.tipo]||'Outro'} · ${d.data||''}</div>
+            </div>
+          </div>
+          ${d.dados ? `<a href="${d.dados}" download="${d.nomeArquivo||d.titulo||'arquivo'}" class="btn btn-outline btn-sm">⬇ Baixar</a>` : ''}
+        </div>`).join('')
+      : '<p class="text-muted" style="padding:16px">Nenhum documento anexado ainda.</p>';
+  }
 
   setTimeout(()=>{
     const ctx = document.getElementById('chart-me-evolucao');
