@@ -4213,7 +4213,12 @@ function editarBibDoc(id) {
 function onBibFileSelect(input) {
   const file = input.files[0];
   if (!file) return;
-  document.getElementById('bib-file-nome').textContent = file.name;
+  if (file.size > 800 * 1024) {
+    alert('Arquivo muito grande (' + (file.size/1024/1024).toFixed(1) + ' MB). O limite é 800 KB. Por favor, compacte o arquivo ou use uma versão menor.');
+    input.value = '';
+    return;
+  }
+  document.getElementById('bib-file-nome').textContent = file.name + ' (' + (file.size/1024).toFixed(0) + ' KB)';
   const reader = new FileReader();
   reader.onload = e => { _bibFileData = {dados: e.target.result, nomeArquivo: file.name}; };
   reader.readAsDataURL(file);
@@ -4410,7 +4415,12 @@ let _docFileData = null;
 function onDocFileSelect(input) {
   const file = input.files[0];
   if (!file) return;
-  document.getElementById('doc-file-nome').textContent = file.name;
+  if (file.size > 800 * 1024) {
+    alert('Arquivo muito grande (' + (file.size/1024/1024).toFixed(1) + ' MB). O limite é 800 KB. Por favor, compacte o arquivo ou use uma versão menor.');
+    input.value = '';
+    return;
+  }
+  document.getElementById('doc-file-nome').textContent = file.name + ' (' + (file.size/1024).toFixed(0) + ' KB)';
   const reader = new FileReader();
   reader.onload = e => { _docFileData = {dados: e.target.result, nomeArquivo: file.name}; };
   reader.readAsDataURL(file);
