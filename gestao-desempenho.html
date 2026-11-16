@@ -910,6 +910,7 @@ tr:hover td { background:var(--gray-50); }
         <div class="upload-area" onclick="document.getElementById('av-file-input').click()">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--gray-400)" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           <p>Anexar arquivos e imagens</p>
+          <p style="font-size:11px;color:var(--gray-400);margin-top:4px">Tamanho máximo por arquivo: 800 KB</p>
         </div>
         <input type="file" id="av-file-input" multiple style="display:none" onchange="handleFileUpload(this,'av-files')">
         <div class="file-list" id="av-files"></div>
@@ -988,6 +989,7 @@ tr:hover td { background:var(--gray-50); }
       <div class="upload-area" onclick="document.getElementById('fb-file-input').click()">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--gray-400)" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         <p>Anexar imagens e documentos</p>
+          <p style="font-size:11px;color:var(--gray-400);margin-top:4px">Tamanho máximo por arquivo: 800 KB</p>
       </div>
       <input type="file" id="fb-file-input" multiple style="display:none" onchange="handleFileUpload(this,'fb-files')">
       <div class="file-list" id="fb-files"></div>
@@ -1034,6 +1036,7 @@ tr:hover td { background:var(--gray-50); }
       <div class="upload-area" onclick="document.getElementById('pdi-file-input').click()">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--gray-400)" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         <p>Materiais de apoio, planilhas, documentos</p>
+          <p style="font-size:11px;color:var(--gray-400);margin-top:4px">Tamanho máximo por arquivo: 800 KB</p>
       </div>
       <input type="file" id="pdi-file-input" multiple style="display:none" onchange="handleFileUpload(this,'pdi-files')">
       <div class="file-list" id="pdi-files"></div>
@@ -1106,6 +1109,7 @@ tr:hover td { background:var(--gray-50); }
       <label class="form-label">Arquivo (PDF, Word, imagem...)</label>
       <div style="border:2px dashed var(--gray-300);border-radius:8px;padding:20px;text-align:center;cursor:pointer" onclick="document.getElementById('bib-file-input').click()">
         <div style="color:var(--gray-400)">📎 Clique para selecionar</div>
+        <div style="font-size:11px;color:var(--gray-400);margin-top:4px">Tamanho máximo: 800 KB</div>
         <div id="bib-file-nome" style="margin-top:6px;font-size:13px;color:var(--primary)"></div>
       </div>
       <input type="file" id="bib-file-input" style="display:none" onchange="onBibFileSelect(this)">
@@ -1198,6 +1202,7 @@ tr:hover td { background:var(--gray-50); }
       <label class="form-label">Arquivo</label>
       <div class="upload-zone" id="doc-upload-zone" onclick="document.getElementById('doc-file-input').click()" style="cursor:pointer;border:2px dashed var(--gray-300);border-radius:8px;padding:24px;text-align:center;color:var(--gray-400)">
         <div>📎 Clique para selecionar ou arraste o arquivo</div>
+        <div style="font-size:11px;color:var(--gray-400);margin-top:4px">Tamanho máximo: 800 KB · PDF, imagem ou documento</div>
         <div id="doc-file-nome" style="margin-top:8px;font-size:13px;color:var(--primary)"></div>
       </div>
       <input type="file" id="doc-file-input" style="display:none" onchange="onDocFileSelect(this)">
@@ -3874,7 +3879,15 @@ function resetAutoAvaliacao() {
 window._uploadedFiles = {};
 
 function handleFileUpload(input, containerId) {
-  const files = Array.from(input.files);
+  const MAX_FILE = 800 * 1024;
+  const todosArquivos = Array.from(input.files);
+  const grandes = todosArquivos.filter(f => f.size > MAX_FILE);
+  if (grandes.length) {
+    alert('Arquivo(s) muito grande(s):\n' + grandes.map(f=>`• ${f.name} (${(f.size/1024).toFixed(0)} KB)`).join('\n') + '\n\nO limite máximo é 800 KB por arquivo. Compacte o arquivo antes de enviar.');
+    input.value = '';
+    return;
+  }
+  const files = todosArquivos;
   if (!window._uploadedFiles[containerId]) window._uploadedFiles[containerId] = [];
   window._uploadedFiles[containerId].push(...files);
 
