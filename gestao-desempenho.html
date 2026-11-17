@@ -491,13 +491,13 @@ tr:hover td { background:var(--gray-50); }
           <h1>PDI – Plano de Desenvolvimento Individual</h1>
           <p>Acompanhe objetivos, ações e evolução de cada colaborador</p>
         </div>
-        <div style="display:flex;gap:8px">
+        <div id="pdi-acoes-header" style="display:flex;gap:8px">
           <button class="btn btn-outline btn-sm" onclick="abrirGerarPDI()">✨ Gerar PDI Inteligente</button>
           <button class="btn btn-primary-sm" onclick="openModal('modal-pdi')">+ Novo PDI</button>
         </div>
       </div>
       <div class="card mb-16">
-        <div class="flex-between mb-16">
+        <div id="pdi-filtros-header" class="flex-between mb-16">
           <input class="form-control" style="max-width:280px" placeholder="Buscar colaborador..." oninput="filterPDIs(this.value)">
           <select class="form-control" style="max-width:180px" onchange="filterPDIsStatus(this.value)">
             <option value="">Todos os status</option>
@@ -1802,6 +1802,7 @@ const NAV_CONFIG = {
   colaborador: [
     {id:'meu-desempenho', label:'Meu Desempenho', icon:'trending-up'},
     {id:'autoavaliacao', label:'Autoavaliação', icon:'edit', section:'Meu Desenvolvimento'},
+    {id:'pdi', label:'Meu PDI', icon:'target'},
     {id:'biblioteca', label:'Biblioteca', icon:'book', section:'Empresa'},
   ],
 };
@@ -1969,7 +1970,7 @@ function renderDashboard() {
   document.getElementById('dash-comportamento').textContent = avgB.toFixed(1);
 
   // PDI %
-  const pdis = DB.pdis.filter(p=>colIds.includes(p.colaboradorId));
+  const pdis = DB.pdis.filter(p=>colIds.includes(Number(p.colaboradorId)));
   const pdiConcluidos = pdis.filter(p=>calcPDIProgress(p)===100).length;
   document.getElementById('dash-pdi').textContent = pdis.length ? Math.round(pdiConcluidos/pdis.length*100)+'%' : '0%';
 
@@ -2760,6 +2761,12 @@ function renderPDIs() {
   if (!lista) return;
 
   const u = DB.currentUser;
+  // Oculta botões de gestão para colaboradores
+  const hdr = document.getElementById('pdi-acoes-header');
+  const flt = document.getElementById('pdi-filtros-header');
+  if (hdr) hdr.style.display = u.perfil === 'colaborador' ? 'none' : '';
+  if (flt) flt.style.display = u.perfil === 'colaborador' ? 'none' : '';
+
   const colIds = getColaboradoresVisiveis().map(c=>Number(c.id));
   const pdisToShow = u.perfil === 'colaborador'
     ? DB.pdis.filter(p=>Number(p.colaboradorId)===Number(u.id))
@@ -3077,9 +3084,9 @@ function renderKPIs() {
   const geral = (avgC+avgP+avgB)/3;
 
   document.getElementById('kpi-geral').textContent = geral.toFixed(1);
-  document.getElementById('kpi-feedbacks').textContent = DB.feedbacks.filter(f=>colIds.includes(f.colaboradorId)).length;
+  document.getElementById('kpi-feedbacks').textContent = DB.feedbacks.filter(f=>colIds.includes(Number(f.colaboradorId))).length;
 
-  const pdis = DB.pdis.filter(p=>colIds.includes(p.colaboradorId));
+  const pdis = DB.pdis.filter(p=>colIds.includes(Number(p.colaboradorId)));
   const pdiConc = pdis.filter(p=>calcPDIProgress(p)===100).length;
   document.getElementById('kpi-pdis').textContent = pdis.length ? Math.round(pdiConc/pdis.length*100)+'%' : '0%';
 
@@ -3090,14 +3097,14 @@ function renderKPIs() {
   // Table
   const tbody = document.getElementById('tbody-kpis');
   tbody.innerHTML = cols.map(c=>{
-    const avList = DB.avaliacoes.filter(a=>a.colaboradorId===c.id);
+    const avList = DB.avaliacoes.filter(a=>Number(a.colaboradorId)===Number(c.id));
     if (!avList.length) return `<tr><td><div class="flex-gap"><div class="mini-avatar">${c.nome.charAt(0)}</div>${c.nome}</div></td><td>${c.area}</td><td colspan="5" style="color:var(--gray-400)">Sem avaliações</td></tr>`;
     const last = avList[avList.length-1];
     const nc = calcNotaPilar(last.cultura);
     const np = calcNotaPilar(last.performance);
     const nb = calcNotaPilar(last.comportamento);
     const ng = (nc+np+nb)/3;
-    const pdi = DB.pdis.find(p=>p.colaboradorId===c.id);
+    const pdi = DB.pdis.find(p=>Number(p.colaboradorId)===Number(c.id));
     const pdiP = pdi ? calcPDIProgress(pdi) : null;
     return `<tr>
       <td><div class="flex-gap"><div class="mini-avatar">${c.nome.charAt(0)}</div>${c.nome}</div></td>
