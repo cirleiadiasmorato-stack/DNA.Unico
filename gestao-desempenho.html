@@ -4341,10 +4341,20 @@ function renderMeuDesempenho() {
             : `<p style="font-size:12px;color:var(--success-dark)"><strong>✅ Pontos Fortes:</strong> ${f.fortes||'—'}</p>
                <p style="font-size:12px;color:var(--gray-600);margin-top:4px"><strong>🔧 Melhoria:</strong> ${f.melhoria||'—'}</p>`}
           ${f.acoes?`<p style="font-size:12px;color:var(--gray-600);margin-top:4px"><strong>🎯 Ações:</strong> ${f.acoes}</p>`:''}
-          <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--gray-100)">
+          <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--gray-100)">
+            ${f.devolutiva
+              ? `<div style="background:var(--primary-50,#eef2ff);border-radius:8px;padding:10px 12px;margin-bottom:8px">
+                   <div style="font-size:11px;font-weight:700;color:var(--primary,#4f46e5);text-transform:uppercase;margin-bottom:4px">💬 Minha Manifestação</div>
+                   <p style="font-size:13px;color:var(--gray-700);margin:0">${f.devolutiva}</p>
+                   <button class="btn btn-outline btn-sm" style="margin-top:8px" onclick="editarDevolutiva(${f.id})">✏️ Editar</button>
+                 </div>`
+              : `<div>
+                   <textarea id="dev-input-${f.id}" class="form-control" rows="2" placeholder="Escreva sua manifestação sobre este feedback..." style="margin-bottom:6px;font-size:13px"></textarea>
+                   <button class="btn btn-primary-sm" onclick="salvarDevolutivaDireta(${f.id})">💬 Enviar Manifestação</button>
+                 </div>`}
             ${f.aceite?.aceito
-              ? `<span class="badge badge-green">✓ Aceito em ${f.aceite.data}</span>`
-              : `<button class="btn btn-primary-sm" onclick="aceitarFeedback(${f.id});renderMeuDesempenho()">✍ Aceitar Feedback</button>`}
+              ? `<span class="badge badge-green" style="margin-top:6px;display:inline-block">✓ Aceito em ${f.aceite.data}</span>`
+              : `<button class="btn btn-outline btn-sm" style="margin-top:6px" onclick="aceitarFeedback(${f.id});renderMeuDesempenho()">✍ Aceitar Feedback</button>`}
           </div>
         </div>`).join('');
     }
@@ -4575,6 +4585,26 @@ function aceitarAvaliacao(id) {
   saveDB();
   renderAvaliacoes();
   alert('Avaliação aceita com sucesso!');
+}
+
+function salvarDevolutivaDireta(id) {
+  const f = DB.feedbacks.find(x=>x.id===id);
+  if (!f) return;
+  const texto = (document.getElementById('dev-input-'+id)?.value||'').trim();
+  if (!texto) { alert('Escreva sua manifestação antes de enviar.'); return; }
+  f.devolutiva = texto;
+  saveDB();
+  renderMeuDesempenho();
+}
+
+function editarDevolutiva(id) {
+  const f = DB.feedbacks.find(x=>x.id===id);
+  if (!f) return;
+  const novoTexto = prompt('Editar manifestação:', f.devolutiva||'');
+  if (novoTexto === null) return;
+  f.devolutiva = novoTexto.trim();
+  saveDB();
+  renderMeuDesempenho();
 }
 
 function aceitarFeedback(id) {
