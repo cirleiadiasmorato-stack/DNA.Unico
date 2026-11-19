@@ -4337,8 +4337,10 @@ function renderMeuDesempenho() {
             <div><strong>${f.gestor||'—'}</strong> <span class="text-muted" style="font-size:12px">· ${f.data||''}</span></div>
             <span class="badge ${f.status==='concluido'?'badge-green':'badge-yellow'}">${f.status==='concluido'?'Concluído':'Pendente'}</span>
           </div>
-          <p style="font-size:12px;color:var(--success-dark)"><strong>✅ Pontos Fortes:</strong> ${f.fortes||'—'}</p>
-          <p style="font-size:12px;color:var(--gray-600);margin-top:4px"><strong>🔧 Melhoria:</strong> ${f.melhoria||'—'}</p>
+          ${f.tipo==='pontual'
+            ? `<p style="font-size:12px;color:var(--gray-700);background:#f0f9ff;border-radius:6px;padding:8px"><strong>⚡ Feedback Pontual:</strong> ${f.pontual||'—'}</p>`
+            : `<p style="font-size:12px;color:var(--success-dark)"><strong>✅ Pontos Fortes:</strong> ${f.fortes||'—'}</p>
+               <p style="font-size:12px;color:var(--gray-600);margin-top:4px"><strong>🔧 Melhoria:</strong> ${f.melhoria||'—'}</p>`}
           ${f.acoes?`<p style="font-size:12px;color:var(--gray-600);margin-top:4px"><strong>🎯 Ações:</strong> ${f.acoes}</p>`:''}
           <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--gray-100)">
             ${f.aceite?.aceito
